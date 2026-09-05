@@ -12,7 +12,6 @@ CREATE TABLE IF NOT EXISTS sessions (
   duration INTEGER NOT NULL -- 避難にかかった時間（秒）
 );
 
--- インデックス作成 (検索パフォーマンス向上用)
 CREATE INDEX IF NOT EXISTS idx_sessions_has_hazard_map ON sessions(has_hazard_map);
 CREATE INDEX IF NOT EXISTS idx_sessions_created_at ON sessions(created_at DESC);
 
@@ -27,23 +26,24 @@ CREATE TABLE IF NOT EXISTS trajectories (
   water_level REAL NOT NULL
 );
 
--- インデックス作成
 CREATE INDEX IF NOT EXISTS idx_trajectories_session_id ON trajectories(session_id);
 CREATE INDEX IF NOT EXISTS idx_trajectories_session_id_step ON trajectories(session_id, step_second);
 
--- Row Level Security (RLS) の設定 (必要に応じて)
--- 今回は研究・実験用途のプロトタイプのため、パブリックでの読み書きを一時的に許可するポリシー例を記述します。
+-- 3. maps テーブル (クラウド保存されたカスタムマップデータ)
+CREATE TABLE IF NOT EXISTS maps (
+  id TEXT PRIMARY KEY,
+  title TEXT NOT NULL,
+  voxel_data TEXT NOT NULL, -- Base64エンコードデータ
+  shelters JSONB NOT NULL DEFAULT '[]'::jsonb,
+  spawn_point JSONB NOT NULL DEFAULT '{}'::jsonb,
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Row Level Security (RLS) の設定
 ALTER TABLE sessions ENABLE ROW LEVEL SECURITY;
 ALTER TABLE trajectories ENABLE ROW LEVEL SECURITY;
+ALTER TABLE maps ENABLE ROW LEVEL SECURITY;
 
-CREATE POLICY "Allow public insert to sessions" ON sessions
-  FOR INSERT WITH CHECK (true);
-
-CREATE POLICY "Allow public select from sessions" ON sessions
-  FOR SELECT USING (true);
-
-CREATE POLICY "Allow public insert to trajectories" ON trajectories
-  FOR INSERT WITH CHECK (true);
-
-CREATE POLICY "Allow public select from trajectories" ON trajectories
-  FOR SELECT USING (true);
+CREATE POLICY "Allow public all to sessions" ON sessions FOR ALL USING (true) WITH CHECK (true);
+CREATE POLICY "Allow public all to trajectories" ON trajectories FOR ALL USING (true) WITH CHECK (true);
+CREATE POLICY "Allow public all to maps" ON maps FOR ALL USING (true) WITH CHECK (true);

@@ -6,91 +6,113 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
     <title>3D水害避難シミュレーター</title>
   </head>
-  <body class="bg-slate-900 text-white overflow-hidden select-none">
+  <body class="bg-slate-950 text-slate-100 overflow-hidden select-none font-sans">
     
     <!-- 1. スタート画面 -->
-    <div id="screen-start" class="fixed inset-0 z-50 flex flex-col items-center justify-center p-6 bg-slate-950/95 overflow-y-auto">
-      <div class="max-w-md w-full bg-slate-900 border border-slate-800 p-8 rounded-2xl shadow-2xl">
-        <h1 class="text-3xl font-extrabold text-center mb-2 text-cyan-400">3D水害避難シミュレーター</h1>
-        <p class="text-sm text-slate-400 text-center mb-8">避難行動調査ツール (高校探究活動)</p>
+    <div id="screen-start" class="fixed inset-0 z-50 flex flex-col items-center justify-center p-4 bg-slate-950/95 overflow-y-auto">
+      <div class="max-w-md w-full bg-slate-900 border border-slate-800 p-6 md:p-8 rounded-2xl shadow-2xl">
         
-        <form id="start-form" class="space-y-5">
+        <div class="flex items-center justify-center space-x-3 mb-2">
+          <div class="w-9 h-9 rounded-xl bg-cyan-500/20 border border-cyan-500/40 flex items-center justify-center text-cyan-400 font-black text-lg">
+            S
+          </div>
+          <h1 class="text-2xl font-black text-cyan-400 tracking-tight">3D水害避難シミュレーター</h1>
+        </div>
+        <p class="text-xs text-slate-400 text-center mb-6">探究活動・避難行動調査ツール (150m広域タウン)</p>
+        
+        <form id="start-form" class="space-y-4">
           <div>
-            <label class="block text-sm font-semibold mb-1.5 text-slate-300">ニックネームまたはID</label>
-            <input type="text" id="input-name" required placeholder="例: 被験者01" 
-              class="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-2.5 text-white focus:outline-none focus:ring-2 focus:ring-cyan-500" />
+            <label class="block text-xs font-bold mb-1.5 text-slate-300">ニックネーム / 被験者ID</label>
+            <input type="text" id="input-name" required placeholder="例: 生徒A" 
+              class="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-cyan-500" />
           </div>
-          <div>
-            <label class="block text-sm font-semibold mb-1.5 text-slate-300">年代</label>
-            <select id="input-age" class="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-2.5 text-white focus:outline-none focus:ring-2 focus:ring-cyan-500">
-              <option value="10s">10代</option>
-              <option value="20s-30s">20代〜30代</option>
-              <option value="40s-50s">40代〜50代</option>
-              <option value="60s+">60代以上</option>
-            </select>
-          </div>
-          <div>
-            <label class="block text-sm font-semibold mb-1.5 text-slate-300">使用するマップ</label>
-            <select id="select-map" class="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-2.5 text-white focus:outline-none focus:ring-2 focus:ring-cyan-500">
-              <option value="default">デフォルトマップ</option>
-              <option value="custom">カスタムマップ</option>
-            </select>
-          </div>
-          <div class="bg-slate-800/50 border border-slate-800 p-4 rounded-lg">
-            <h3 class="text-xs font-bold text-cyan-300 mb-1">【避難情報】</h3>
-            <p class="text-[11px] text-slate-300 leading-relaxed mb-3">
-              現在、激しい大雨により河川の氾濫危険性が高まっています。
-              30秒後に河川が氾濫し水位が上昇し始めます。安全な避難所を目指して避難してください。
-            </p>
-            <label class="flex items-start space-x-2.5 cursor-pointer">
-              <input type="checkbox" id="input-hazard" class="mt-0.5 h-4 w-4 rounded border-slate-700 bg-slate-800 text-cyan-600 focus:ring-cyan-500" />
-              <span class="text-[11px] text-slate-300 select-none">事前にハザードマップを確認した</span>
-            </label>
-          </div>
-          <div id="hazard-map-container" class="hidden border border-cyan-800 bg-slate-900 p-3 rounded-lg text-center">
-            <p class="text-xs text-cyan-400 font-bold mb-2">簡易ハザードマップ</p>
-            <div class="grid grid-cols-3 gap-1 text-[10px] text-slate-900 font-bold mb-2">
-              <div class="bg-emerald-300 p-2 rounded">高台 (安全)</div>
-              <div class="bg-yellow-200 p-2 rounded">中台 (軽微な浸水)</div>
-              <div class="bg-red-300 p-2 rounded">低地・河川 (深い浸水)</div>
+
+          <div class="grid grid-cols-2 gap-3">
+            <div>
+              <label class="block text-xs font-bold mb-1.5 text-slate-300">年代</label>
+              <select id="input-age" class="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:ring-2 focus:ring-cyan-500">
+                <option value="10s">10代 (中高生)</option>
+                <option value="20s-30s">20代〜30代</option>
+                <option value="40s-50s">40代〜50代</option>
+                <option value="60s+">60代以上</option>
+              </select>
+            </div>
+            <div>
+              <label class="block text-xs font-bold mb-1.5 text-slate-300">使用マップ</label>
+              <select id="select-map" class="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:ring-2 focus:ring-cyan-500">
+                <option value="default">標準マップ (広域タウン・150m)</option>
+                <option value="custom">自作カスタムマップ (クラウド/ローカル)</option>
+              </select>
             </div>
           </div>
-          <button type="submit" class="w-full bg-cyan-600 hover:bg-cyan-500 text-white font-bold py-3.5 px-6 rounded-xl transition duration-200 shadow-lg shadow-cyan-900/50">
-            避難シミュレーションを開始する
+
+          <div class="bg-slate-800/60 border border-slate-700/60 p-3.5 rounded-xl">
+            <h3 class="text-xs font-bold text-cyan-300 mb-1">【避難情報】</h3>
+            <p class="text-[11px] text-slate-300 leading-relaxed mb-2.5">
+              豪雨により水害が発生します。開始30秒後から低標高地域より浸水が拡大します。制限時間内に安全な高所避難場所を目指してください。
+            </p>
+            <label class="flex items-center space-x-2.5 cursor-pointer">
+              <input type="checkbox" id="input-hazard" class="h-4 w-4 rounded border-slate-700 bg-slate-800 text-cyan-600 focus:ring-cyan-500" />
+              <span class="text-xs text-slate-200 font-semibold select-none">事前にハザードマップを確認した</span>
+            </label>
+          </div>
+
+          <button type="submit" class="w-full bg-cyan-600 hover:bg-cyan-500 active:scale-[0.98] text-white font-black py-3.5 px-6 rounded-xl transition shadow-lg shadow-cyan-900/50 text-sm flex items-center justify-center space-x-2">
+            <span>避難シミュレーションを開始</span>
           </button>
         </form>
-        <div class="mt-6 pt-5 border-t border-slate-800 flex justify-around text-xs">
-          <button id="btn-goto-mapmaker" class="text-cyan-400 hover:text-cyan-300 underline font-semibold">マップメーカー</button>
-          <button id="btn-goto-admin" class="text-slate-400 hover:text-slate-300 underline">管理者ダッシュボード</button>
+        
+        <div class="mt-5 pt-4 border-t border-slate-800 flex justify-between text-xs">
+          <button id="btn-goto-editor" class="text-emerald-400 hover:text-emerald-300 font-bold flex items-center space-x-1">
+            <span>3Dマップ建築エディタ (Eキーでメニュー)</span>
+          </button>
+          <button id="btn-goto-admin" class="text-slate-400 hover:text-slate-200 underline">
+            管理者・避難解析画面
+          </button>
         </div>
       </div>
     </div>
 
-    <!-- 2. ゲーム画面 -->
+    <!-- 2. シミュレーションゲーム画面 -->
     <div id="screen-game" class="hidden fixed inset-0 z-10 w-full h-full">
-      <div id="canvas-container" class="w-full h-full"></div>
-      <div class="absolute inset-0 pointer-events-none flex flex-col justify-between p-4">
+      <div id="game-canvas-container" class="w-full h-full touch-none"></div>
+
+      <!-- UI オーバーレイ -->
+      <div class="absolute inset-0 pointer-events-none flex flex-col justify-between p-3 md:p-4">
+        
+        <!-- 上部バー -->
         <div class="w-full flex justify-between items-start pointer-events-auto">
-          <div class="bg-slate-950/80 border border-slate-800 px-4 py-2 rounded-xl backdrop-blur-md">
+          <div class="bg-slate-950/85 border border-slate-800 px-3.5 py-2 rounded-xl backdrop-blur-md shadow-lg">
             <div class="text-[10px] text-slate-400 font-bold uppercase tracking-wider">残り避難時間</div>
-            <div id="timer-display" class="text-2xl font-black text-cyan-400">05:00</div>
-            <div id="water-info" class="text-[10px] text-red-400 font-bold mt-1">浸水開始まで 30 秒</div>
+            <div id="timer-display" class="text-xl md:text-2xl font-black text-cyan-400">05:00</div>
+            <div id="water-info" class="text-[11px] text-yellow-400 font-bold mt-0.5">浸水開始まで 30 秒</div>
           </div>
-          <div class="bg-slate-950/80 border border-slate-800 px-4 py-2 rounded-xl backdrop-blur-md text-right">
+
+          <div class="hidden md:block bg-slate-950/80 border border-slate-800 px-3.5 py-1.5 rounded-lg text-xs text-slate-300 text-center">
+            WASD: 移動 (段差自動登り) / ドラッグ: 視点回転 (カメラ向きに移動)
+          </div>
+          
+          <div class="bg-slate-950/85 border border-slate-800 px-3.5 py-2 rounded-xl backdrop-blur-md text-right shadow-lg">
             <div class="text-[10px] text-slate-400 font-bold uppercase tracking-wider">現在位置</div>
-            <div id="location-display" class="text-sm font-bold text-slate-200">市街地</div>
-            <div id="height-display" class="text-xs text-emerald-400">標高: 0.5m</div>
+            <div id="location-display" class="text-xs md:text-sm font-bold text-slate-200">市街地</div>
+            <div id="height-display" class="text-[11px] text-emerald-400 font-bold">標高: 0.5m</div>
           </div>
         </div>
-        <div id="warning-ticker" class="hidden w-full bg-red-600/90 text-white font-extrabold text-center py-2 rounded-lg text-sm animate-pulse pointer-events-auto">
-          ⚠️ 避難警報：河川が氾濫しています！高台へ移動してください！
+
+        <!-- 水害警告テロップ -->
+        <div id="warning-ticker" class="hidden w-full bg-red-600/90 text-white font-black text-center py-2 px-4 rounded-lg text-xs md:text-sm shadow-xl animate-pulse pointer-events-auto">
+          [避難警報] 水位が上昇しています！低い場所から水が上がってきます！高台や高い建物へ避難してください！
         </div>
+
+        <!-- 下部操作部 -->
         <div class="w-full flex justify-between items-end">
-          <div id="joystick-zone" class="w-36 h-36 bg-slate-950/50 border-2 border-slate-700/50 rounded-full flex items-center justify-center pointer-events-auto touch-none relative select-none">
-            <div id="joystick-handle" class="w-14 h-14 bg-cyan-500 rounded-full shadow-lg absolute transition-all duration-75"></div>
+          <div id="game-joystick-zone" class="w-28 h-28 md:w-32 md:h-32 bg-slate-950/60 border-2 border-slate-700/60 rounded-full flex items-center justify-center pointer-events-auto touch-none relative select-none shadow-xl">
+            <div id="game-joystick-handle" class="w-12 h-12 bg-cyan-500 rounded-full shadow-lg absolute"></div>
           </div>
-          <div class="flex flex-col space-y-3 pointer-events-auto">
-            <button id="btn-evacuate" disabled class="bg-slate-700 text-slate-400 font-black px-6 py-4 rounded-xl text-lg shadow-xl cursor-not-allowed transition duration-200 select-none">
+
+          <div class="flex flex-col space-y-2 pointer-events-auto items-end">
+            <button id="btn-evacuate" disabled
+              class="bg-slate-800 text-slate-500 font-black px-5 py-3 md:px-6 md:py-3.5 rounded-xl text-sm md:text-base shadow-2xl cursor-not-allowed transition duration-150 select-none">
               ここに避難する (確定)
             </button>
           </div>
@@ -98,125 +120,361 @@
       </div>
     </div>
 
-    <!-- 3. リザルト画面 -->
-    <div id="screen-result" class="hidden fixed inset-0 z-50 flex flex-col items-center justify-center p-6 bg-slate-950/98">
-      <div class="max-w-md w-full bg-slate-900 border border-slate-800 p-8 rounded-2xl shadow-2xl text-center">
-        <div id="result-icon-container" class="mb-4"></div>
-        <h2 id="result-title" class="text-3xl font-extrabold mb-2"></h2>
-        <p id="result-desc" class="text-slate-300 text-sm mb-6 leading-relaxed"></p>
-        <div class="bg-slate-850 p-4 rounded-xl border border-slate-800 text-left space-y-3 text-xs mb-8">
-          <div class="flex justify-between"><span class="text-slate-400">被験者名:</span><span id="res-name" class="font-bold"></span></div>
-          <div class="flex justify-between"><span class="text-slate-400">避難場所:</span><span id="res-dest" class="font-bold text-cyan-400"></span></div>
-          <div class="flex justify-between"><span class="text-slate-400">経過時間:</span><span id="res-time" class="font-bold"></span></div>
-          <div class="flex justify-between"><span class="text-slate-400">最終生存状態:</span><span id="res-status" class="font-bold"></span></div>
-        </div>
-        <button id="btn-result-restart" class="w-full bg-cyan-600 hover:bg-cyan-500 text-white font-bold py-4 px-6 rounded-xl transition duration-200 shadow-lg shadow-cyan-900/50">タイトルに戻る</button>
-      </div>
-    </div>
-
-    <!-- 4. 管理者用ダッシュボード -->
-    <div id="screen-admin" class="hidden fixed inset-0 z-50 flex flex-col bg-slate-950 overflow-hidden">
-      <header class="bg-slate-900 border-b border-slate-800 px-6 py-4 flex justify-between items-center">
-        <h2 class="text-xl font-bold text-cyan-400">避難行動解析ダッシュボード</h2>
-        <button id="btn-admin-close" class="bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold px-4 py-2 rounded-lg text-sm transition">閉じる</button>
-      </header>
-      <div class="flex-1 flex flex-col md:flex-row overflow-hidden">
-        <div class="w-full md:w-1/3 border-r border-slate-800 flex flex-col overflow-hidden">
-          <div class="p-4 bg-slate-900/50 border-b border-slate-800">
-            <h3 class="text-sm font-bold text-slate-300 mb-2">被験者データ一覧</h3>
-            <select id="filter-hazard" class="w-full bg-slate-800 border border-slate-700 rounded px-2 py-1 text-xs">
-              <option value="all">全員</option>
-              <option value="map-yes">ハザードマップ確認済のみ</option>
-              <option value="map-no">未確認のみ</option>
-            </select>
-          </div>
-          <div id="session-list" class="flex-1 overflow-y-auto p-2 space-y-2">
-            <p class="text-xs text-slate-500 text-center p-4">データを読み込み中...</p>
-          </div>
-        </div>
-        <div class="flex-1 flex flex-col overflow-hidden bg-slate-900">
-          <div class="p-4 border-b border-slate-800 flex justify-between items-center bg-slate-950/50">
-            <h3 class="text-sm font-bold text-slate-300">避難経路可視化</h3>
-            <button id="btn-clear-selection" class="bg-slate-850 hover:bg-slate-800 text-slate-400 px-3 py-1 rounded border border-slate-800 text-xs">選択クリア</button>
-          </div>
-          <div class="flex-1 relative flex items-center justify-center p-6">
-            <canvas id="map-canvas" class="bg-slate-950 border border-slate-800 rounded-lg shadow-inner max-w-full max-h-full" width="600" height="600"></canvas>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <!-- 5. マップメーカー画面 (キャンバスベース) -->
-    <div id="screen-mapmaker" class="hidden fixed inset-0 z-50 flex flex-col bg-slate-950 overflow-hidden">
-      <header class="bg-slate-900 border-b border-slate-800 px-6 py-4 flex justify-between items-center">
-        <div>
-          <h2 class="text-xl font-bold text-cyan-400">避難マップメーカー</h2>
-          <p class="text-xs text-slate-400">50×50グリッド (750m×750m) | 左クリック:配置 / 右クリック:標高変更</p>
-        </div>
-        <button id="btn-mapmaker-close" class="bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold px-4 py-2 rounded-lg text-sm transition">保存して閉じる</button>
-      </header>
-      <div class="flex-1 flex flex-col md:flex-row overflow-hidden">
-        <!-- ツールパレット -->
-        <div class="w-full md:w-56 border-r border-slate-800 bg-slate-900/50 p-3 flex flex-col overflow-y-auto gap-3">
+    <!-- 3. 3D クリエイティブ マップエディタ画面 -->
+    <div id="screen-editor" class="hidden fixed inset-0 z-40 flex flex-col bg-slate-950">
+      <!-- エディタ上部ヘッダー -->
+      <header class="bg-slate-900/95 border-b border-slate-800 px-3 py-2 flex flex-wrap justify-between items-center z-10 backdrop-blur-md gap-2">
+        <div class="flex items-center space-x-2.5">
+          <span class="px-2 py-0.5 bg-emerald-950 border border-emerald-700 text-emerald-300 font-bold rounded text-xs">エディタ</span>
           <div>
-            <h3 class="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">配置ツール</h3>
-            <div class="grid grid-cols-1 gap-1.5" id="palette-container">
-              <button data-type="grass" class="palette-btn w-full bg-slate-800 border-2 border-cyan-500 text-left px-2 py-1.5 rounded text-[11px] flex items-center space-x-2">
-                <span class="w-3 h-3 bg-green-800 rounded-sm shrink-0"></span><span>草地 (消しゴム)</span>
-              </button>
-              <button data-type="road" class="palette-btn w-full bg-slate-800 border border-slate-700 text-left px-2 py-1.5 rounded text-[11px] flex items-center space-x-2">
-                <span class="w-3 h-3 bg-slate-500 rounded-sm shrink-0"></span><span>道路</span>
-              </button>
-              <button data-type="river" class="palette-btn w-full bg-slate-800 border border-slate-700 text-left px-2 py-1.5 rounded text-[11px] flex items-center space-x-2 text-blue-300">
-                <span class="w-3 h-3 bg-cyan-700 rounded-sm shrink-0"></span><span>河川</span>
-              </button>
-              <button data-type="building" class="palette-btn w-full bg-slate-800 border border-slate-700 text-left px-2 py-1.5 rounded text-[11px] flex items-center space-x-2">
-                <span class="w-3 h-3 bg-slate-300 rounded-sm shrink-0"></span><span>建物</span>
-              </button>
-              <button data-type="siteA" class="palette-btn w-full bg-slate-800 border border-slate-700 text-left px-2 py-1.5 rounded text-[11px] flex items-center space-x-2 text-red-400">
-                <span class="w-3 h-3 bg-red-500 rounded-sm shrink-0"></span><span>避難所A (危険)</span>
-              </button>
-              <button data-type="siteB" class="palette-btn w-full bg-slate-800 border border-slate-700 text-left px-2 py-1.5 rounded text-[11px] flex items-center space-x-2 text-yellow-400">
-                <span class="w-3 h-3 bg-yellow-500 rounded-sm shrink-0"></span><span>避難所B (中間)</span>
-              </button>
-              <button data-type="siteC" class="palette-btn w-full bg-slate-800 border border-slate-700 text-left px-2 py-1.5 rounded text-[11px] flex items-center space-x-2 text-emerald-400">
-                <span class="w-3 h-3 bg-emerald-500 rounded-sm shrink-0"></span><span>避難所C (安全)</span>
-              </button>
-              <button data-type="siteD" class="palette-btn w-full bg-slate-800 border border-slate-700 text-left px-2 py-1.5 rounded text-[11px] flex items-center space-x-2 text-blue-400">
-                <span class="w-3 h-3 bg-blue-500 rounded-sm shrink-0"></span><span>避難所D (垂直避難)</span>
-              </button>
-              <button data-type="start" class="palette-btn w-full bg-slate-800 border border-slate-700 text-left px-2 py-1.5 rounded text-[11px] flex items-center space-x-2 text-cyan-400">
-                <span class="w-3 h-3 bg-cyan-400 rounded-full shrink-0"></span><span>開始地点</span>
-              </button>
-            </div>
+            <h2 class="text-sm md:text-base font-black text-slate-100">3D建築・地形エディタ (150m×150m)</h2>
+            <div class="text-[10px] text-slate-400 hidden sm:block">画面クリックで視点開始 / <span class="text-cyan-400 font-bold">Eキー: インベントリメニュー</span> / 左クリック: 設置 / 右クリック: 破壊</div>
           </div>
-          <div class="border-t border-slate-800 pt-3">
-            <h3 class="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">ペイント標高 (m)</h3>
-            <div class="flex items-center space-x-2">
-              <input type="range" id="height-slider" min="0" max="20" step="1" value="2" class="flex-1 accent-cyan-500" />
-              <input type="number" id="height-input" min="0" max="20" step="1" value="2" class="w-14 bg-slate-800 border border-slate-700 rounded px-2 py-1 text-xs text-center" />
-            </div>
-            <p class="text-[9px] text-slate-500 mt-1">左クリックで種類＋標高を同時にペイント</p>
-            <p class="text-[9px] text-slate-500">右クリックでそのセルの標高だけを変更</p>
+        </div>
+
+        <div class="flex items-center space-x-1.5 md:space-x-2 text-xs flex-wrap">
+          <!-- インベントリを開くボタン -->
+          <button id="btn-open-inventory" class="bg-cyan-600 hover:bg-cyan-500 text-white font-bold px-3 py-1 rounded-lg border border-cyan-400 flex items-center space-x-1.5 shadow">
+            <span>インベントリ (E)</span>
+          </button>
+
+          <!-- 設置・破壊切替 -->
+          <div class="bg-slate-800 rounded-lg p-0.5 border border-slate-700 flex">
+            <button id="btn-mode-place" class="px-2.5 py-1 rounded bg-cyan-600 text-white font-bold text-xs">設置</button>
+            <button id="btn-mode-break" class="px-2.5 py-1 rounded text-slate-400 font-bold text-xs hover:text-white">破壊</button>
           </div>
-          <div class="border-t border-slate-800 pt-3 text-[10px] text-slate-400 leading-relaxed space-y-0.5">
-            <p class="font-bold text-slate-300">操作方法:</p>
-            <p>・左ドラッグ：種類＋標高ペイント</p>
-            <p>・右クリック：標高のみ変更</p>
-            <p>・避難所/開始地点は各1個のみ</p>
-            <p>・河川は低い標高にしてください</p>
-          </div>
-          <button id="btn-mapmaker-reset" class="w-full bg-red-950 border border-red-800 text-red-400 text-xs py-2 rounded-lg hover:bg-red-900 transition mt-auto">
-            マップ全体をクリア
+
+          <!-- 保存 & 終了 -->
+          <button id="btn-editor-save" class="bg-emerald-600 hover:bg-emerald-500 text-white font-black px-3.5 py-1 rounded-lg shadow transition">
+            保存終了
           </button>
         </div>
-        <!-- エディタキャンバス -->
-        <div class="flex-1 flex items-center justify-center p-4 bg-slate-900 overflow-auto">
-          <canvas id="editor-canvas" class="bg-slate-950 border border-slate-800 rounded-lg cursor-crosshair" width="750" height="750"></canvas>
+      </header>
+
+      <!-- 3D エディタ描画領域 -->
+      <div class="flex-1 relative overflow-hidden">
+        <div id="editor-canvas-container" class="w-full h-full touch-none cursor-crosshair"></div>
+
+        <!-- 照準クロスヘア -->
+        <div class="absolute inset-0 pointer-events-none flex items-center justify-center">
+          <div id="editor-crosshair" class="w-4 h-4 border-2 border-white/70 rounded-full transition-colors"></div>
+        </div>
+
+        <!-- ポインターロック案内インジケーター -->
+        <div id="pointer-lock-hint" class="absolute top-3 right-3 bg-slate-950/80 border border-slate-700 px-3 py-1.5 rounded-lg text-xs text-slate-300 pointer-events-none">
+          クリックして視点操作を開始 (Eキーでメニュー)
+        </div>
+
+        <!-- 選択中ブロック・座標インフォ -->
+        <div class="absolute top-3 left-3 bg-slate-950/85 border border-slate-800 px-3 py-2 rounded-lg backdrop-blur-md pointer-events-none text-xs shadow-lg">
+          <div class="text-slate-400 text-[10px]">選択中ブロック</div>
+          <div id="editor-current-block-label" class="font-bold text-emerald-400">草地ブロック</div>
+          <div id="editor-cursor-pos" class="text-[10px] text-slate-400 mt-0.5">X: 0, Y: 0, Z: 0</div>
+          <div id="editor-distance-label" class="text-[10px] text-slate-400">距離: 0.0m (リーチ内)</div>
+          <div id="editor-mode-label" class="text-[10px] text-cyan-400 font-bold mt-0.5">モード: 単体設置</div>
+        </div>
+
+        <!-- スマホ用フライ移動操作UI -->
+        <div class="md:hidden absolute bottom-20 left-4 pointer-events-auto flex items-end space-x-2">
+          <div id="editor-joystick-zone" class="w-24 h-24 bg-slate-950/60 border-2 border-slate-700/60 rounded-full flex items-center justify-center touch-none relative select-none">
+            <div id="editor-joystick-handle" class="w-10 h-10 bg-emerald-500 rounded-full shadow-lg absolute"></div>
+          </div>
+        </div>
+
+        <!-- スマホ用 上昇/下降 & アクションボタン -->
+        <div class="md:hidden absolute bottom-20 right-4 pointer-events-auto flex flex-col space-y-2 items-end">
+          <div class="flex space-x-2">
+            <button id="btn-fly-up" class="w-11 h-11 bg-slate-800/80 border border-slate-600 rounded-full text-white font-bold flex items-center justify-center text-xs active:bg-emerald-600">
+              上昇
+            </button>
+            <button id="btn-fly-down" class="w-11 h-11 bg-slate-800/80 border border-slate-600 rounded-full text-white font-bold flex items-center justify-center text-xs active:bg-emerald-600">
+              下降
+            </button>
+          </div>
+          <button id="btn-touch-action" class="w-14 h-14 bg-emerald-600 text-white font-black rounded-xl shadow-xl flex items-center justify-center text-sm active:scale-95">
+            決定
+          </button>
+        </div>
+
+        <!-- 下部クイックホットバー (主要ブロック) -->
+        <div class="absolute bottom-2 inset-x-2 md:inset-x-auto md:left-1/2 md:-translate-x-1/2 bg-slate-950/90 border border-slate-800 p-2 rounded-2xl backdrop-blur-md pointer-events-auto flex space-x-1.5 overflow-x-auto max-w-full z-20 shadow-2xl">
+          <button data-block="1" class="palette-block active flex-shrink-0 w-11 h-11 rounded-xl bg-slate-900 border-2 border-cyan-400 flex flex-col items-center justify-center text-[9px] font-bold">
+            <span class="w-3.5 h-3.5 rounded bg-emerald-600 mb-0.5 border border-emerald-400"></span><span>草地</span>
+          </button>
+          <button data-block="2" class="palette-block flex-shrink-0 w-11 h-11 rounded-xl bg-slate-900 border border-slate-700 flex flex-col items-center justify-center text-[9px] font-bold text-amber-200">
+            <span class="w-3.5 h-3.5 rounded bg-amber-800 mb-0.5 border border-amber-600"></span><span>土</span>
+          </button>
+          <button data-block="3" class="palette-block flex-shrink-0 w-11 h-11 rounded-xl bg-slate-900 border border-slate-700 flex flex-col items-center justify-center text-[9px] font-bold text-slate-300">
+            <span class="w-3.5 h-3.5 rounded bg-slate-600 mb-0.5 border border-slate-400"></span><span>石</span>
+          </button>
+          <button data-block="4" class="palette-block flex-shrink-0 w-11 h-11 rounded-xl bg-slate-900 border border-slate-700 flex flex-col items-center justify-center text-[9px] font-bold text-slate-300">
+            <span class="w-3.5 h-3.5 rounded bg-slate-800 mb-0.5 border border-slate-600"></span><span>道路</span>
+          </button>
+          <button data-block="6" class="palette-block flex-shrink-0 w-11 h-11 rounded-xl bg-slate-900 border border-slate-700 flex flex-col items-center justify-center text-[9px] font-bold text-slate-100">
+            <span class="w-3.5 h-3.5 rounded bg-slate-200 mb-0.5 border border-white"></span><span>ビル壁</span>
+          </button>
+          <button data-block="8" class="palette-block flex-shrink-0 w-11 h-11 rounded-xl bg-slate-900 border border-slate-700 flex flex-col items-center justify-center text-[9px] font-bold text-sky-200">
+            <span class="w-3.5 h-3.5 rounded bg-sky-400/50 mb-0.5 border border-sky-300"></span><span>ガラス</span>
+          </button>
+          <button data-block="9" class="palette-block flex-shrink-0 w-11 h-11 rounded-xl bg-slate-900 border border-slate-700 flex flex-col items-center justify-center text-[9px] font-bold text-blue-200">
+            <span class="w-3.5 h-3.5 rounded bg-blue-600 mb-0.5 border border-blue-400"></span><span>水路</span>
+          </button>
+          <button data-block="12" class="palette-block flex-shrink-0 w-11 h-11 rounded-xl bg-slate-900 border border-slate-700 flex flex-col items-center justify-center text-[9px] font-bold text-rose-300">
+            <span class="w-3.5 h-3.5 rounded border border-dashed border-rose-500 bg-rose-500/30 mb-0.5"></span><span>バリア</span>
+          </button>
+          <button data-block="10" class="palette-block flex-shrink-0 w-11 h-11 rounded-xl bg-slate-900 border border-slate-700 flex flex-col items-center justify-center text-[9px] font-bold text-rose-400">
+            <span class="w-3.5 h-3.5 rounded bg-rose-600 mb-0.5 border border-rose-400"></span><span>避難所</span>
+          </button>
         </div>
       </div>
     </div>
 
+    <!-- 4. クリエイティブ インベントリ モーダル (Eキーで開閉) -->
+    <div id="modal-inventory" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 backdrop-blur-sm">
+      <div class="bg-slate-900 border border-slate-800 rounded-2xl max-w-2xl w-full p-5 space-y-4 shadow-2xl max-h-[90vh] flex flex-col overflow-hidden">
+        
+        <!-- モーダルヘッダー -->
+        <div class="flex justify-between items-center border-b border-slate-800 pb-3">
+          <div class="flex items-center space-x-2">
+            <span class="px-2 py-0.5 bg-cyan-950 border border-cyan-700 text-cyan-300 font-bold rounded text-xs">メニュー</span>
+            <h3 class="font-black text-base text-slate-100">クリエイティブ インベントリ</h3>
+            <span class="text-xs text-slate-400 hidden sm:inline">(EキーまたはESCで閉じる)</span>
+          </div>
+          <button id="btn-close-inventory" class="text-slate-400 hover:text-white text-lg font-bold">✕</button>
+        </div>
+
+        <div class="flex-1 overflow-y-auto space-y-4 pr-1">
+          
+          <!-- 1. 全ブロック選択 -->
+          <div>
+            <h4 class="text-xs font-bold text-cyan-400 uppercase tracking-wider mb-2">ブロック一覧</h4>
+            <div class="grid grid-cols-4 sm:grid-cols-6 gap-2">
+              <button data-block="1" class="inv-block-btn bg-slate-800 hover:bg-slate-700 border border-slate-700 p-2 rounded-xl flex flex-col items-center justify-center text-xs">
+                <span class="w-6 h-6 rounded bg-emerald-600 mb-1 border border-emerald-400"></span><span class="text-[11px]">草地</span>
+              </button>
+              <button data-block="2" class="inv-block-btn bg-slate-800 hover:bg-slate-700 border border-slate-700 p-2 rounded-xl flex flex-col items-center justify-center text-xs text-amber-200">
+                <span class="w-6 h-6 rounded bg-amber-800 mb-1 border border-amber-600"></span><span class="text-[11px]">土/崖</span>
+              </button>
+              <button data-block="3" class="inv-block-btn bg-slate-800 hover:bg-slate-700 border border-slate-700 p-2 rounded-xl flex flex-col items-center justify-center text-xs text-slate-300">
+                <span class="w-6 h-6 rounded bg-slate-600 mb-1 border border-slate-400"></span><span class="text-[11px]">石/岩</span>
+              </button>
+              <button data-block="4" class="inv-block-btn bg-slate-800 hover:bg-slate-700 border border-slate-700 p-2 rounded-xl flex flex-col items-center justify-center text-xs text-slate-300">
+                <span class="w-6 h-6 rounded bg-slate-800 mb-1 border border-slate-600"></span><span class="text-[11px]">道路</span>
+              </button>
+              <button data-block="5" class="inv-block-btn bg-slate-800 hover:bg-slate-700 border border-slate-700 p-2 rounded-xl flex flex-col items-center justify-center text-xs text-amber-100">
+                <span class="w-6 h-6 rounded bg-amber-700 mb-1 border border-amber-500"></span><span class="text-[11px]">木材</span>
+              </button>
+              <button data-block="6" class="inv-block-btn bg-slate-800 hover:bg-slate-700 border border-slate-700 p-2 rounded-xl flex flex-col items-center justify-center text-xs text-slate-100">
+                <span class="w-6 h-6 rounded bg-slate-200 mb-1 border border-white"></span><span class="text-[11px]">ビル壁</span>
+              </button>
+              <button data-block="7" class="inv-block-btn bg-slate-800 hover:bg-slate-700 border border-slate-700 p-2 rounded-xl flex flex-col items-center justify-center text-xs text-red-200">
+                <span class="w-6 h-6 rounded bg-red-800 mb-1 border border-red-500"></span><span class="text-[11px]">レンガ</span>
+              </button>
+              <button data-block="8" class="inv-block-btn bg-slate-800 hover:bg-slate-700 border border-slate-700 p-2 rounded-xl flex flex-col items-center justify-center text-xs text-sky-200">
+                <span class="w-6 h-6 rounded bg-sky-400/50 mb-1 border border-sky-300"></span><span class="text-[11px]">ガラス</span>
+              </button>
+              <button data-block="9" class="inv-block-btn bg-slate-800 hover:bg-slate-700 border border-slate-700 p-2 rounded-xl flex flex-col items-center justify-center text-xs text-blue-200">
+                <span class="w-6 h-6 rounded bg-blue-600 mb-1 border border-blue-400"></span><span class="text-[11px]">水路</span>
+              </button>
+              <button data-block="12" class="inv-block-btn bg-slate-800 hover:bg-slate-700 border border-slate-700 p-2 rounded-xl flex flex-col items-center justify-center text-xs text-rose-300">
+                <span class="w-6 h-6 rounded border-2 border-dashed border-rose-500 bg-rose-500/30 mb-1"></span><span class="text-[11px]">バリア</span>
+              </button>
+              <button data-block="10" class="inv-block-btn bg-slate-800 hover:bg-slate-700 border border-slate-700 p-2 rounded-xl flex flex-col items-center justify-center text-xs text-rose-400">
+                <span class="w-6 h-6 rounded bg-rose-600 mb-1 border border-rose-400"></span><span class="text-[11px]">避難所</span>
+              </button>
+              <button data-block="11" class="inv-block-btn bg-slate-800 hover:bg-slate-700 border border-slate-700 p-2 rounded-xl flex flex-col items-center justify-center text-xs text-cyan-300">
+                <span class="w-6 h-6 rounded bg-cyan-400 mb-1 border border-cyan-200"></span><span class="text-[11px]">開始地点</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- 2. ツール切替 -->
+          <div class="border-t border-slate-800 pt-3">
+            <h4 class="text-xs font-bold text-cyan-400 uppercase tracking-wider mb-2">建築・地形ツール</h4>
+            <div class="grid grid-cols-2 sm:grid-cols-4 gap-2">
+              <button id="inv-tool-single" class="p-2.5 rounded-xl border bg-emerald-700 border-emerald-500 text-white font-bold text-xs flex flex-col items-center justify-center">
+                <span>単体設置 / 破壊</span>
+                <span class="text-[10px] text-slate-300 font-normal">通常ブロック配置</span>
+              </button>
+              <button id="inv-tool-hill" class="p-2.5 rounded-xl border bg-slate-800 border-slate-700 hover:border-slate-500 text-slate-200 font-bold text-xs flex flex-col items-center justify-center">
+                <span>丘陵ブラシ</span>
+                <span class="text-[10px] text-slate-400 font-normal">自然な山・低地生成</span>
+              </button>
+              <button id="inv-tool-box" class="p-2.5 rounded-xl border bg-slate-800 border-slate-700 hover:border-slate-500 text-slate-200 font-bold text-xs flex flex-col items-center justify-center">
+                <span>範囲 (WorldEdit)</span>
+                <span class="text-[10px] text-slate-400 font-normal">直方体一括充填/消去</span>
+              </button>
+              <button id="inv-tool-stamp" class="p-2.5 rounded-xl border bg-slate-800 border-slate-700 hover:border-slate-500 text-slate-200 font-bold text-xs flex flex-col items-center justify-center">
+                <span>建築スタンプ</span>
+                <span class="text-[10px] text-slate-400 font-normal">住宅・ビル一発配置</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- 3. 丘陵ブラシ設定詳細 (ツール選択時) -->
+          <div id="inv-hill-settings" class="hidden bg-slate-950 p-3 rounded-xl border border-slate-800 space-y-2">
+            <div class="text-xs font-bold text-emerald-400">丘陵ブラシ設定</div>
+            <div class="grid grid-cols-2 gap-3 text-xs">
+              <div>
+                <label class="block text-slate-400 text-[11px] mb-1">半径</label>
+                <select id="inv-hill-radius" class="w-full bg-slate-800 border border-slate-700 rounded px-2 py-1 text-xs">
+                  <option value="6">小 (3m)</option>
+                  <option value="12" selected>中 (6m)</option>
+                  <option value="20">大 (10m)</option>
+                  <option value="32">特大 (16m)</option>
+                </select>
+              </div>
+              <div>
+                <label class="block text-slate-400 text-[11px] mb-1">高さ</label>
+                <select id="inv-hill-height" class="w-full bg-slate-800 border border-slate-700 rounded px-2 py-1 text-xs">
+                  <option value="4">なだらか (2m)</option>
+                  <option value="8" selected>標準の丘 (4m)</option>
+                  <option value="14">高い山 (7m)</option>
+                  <option value="20">急な高台 (10m)</option>
+                </select>
+              </div>
+            </div>
+          </div>
+
+          <!-- 4. WorldEdit 範囲ツール詳細 -->
+          <div id="inv-box-settings" class="hidden bg-slate-950 p-3 rounded-xl border border-slate-800 space-y-2.5">
+            <div class="text-xs font-bold text-cyan-400">範囲ツール (WorldEdit) 設定</div>
+            <div class="flex items-center space-x-2 text-xs">
+              <button id="inv-we-pos1" class="px-2.5 py-1.5 bg-slate-800 hover:bg-slate-700 border border-slate-600 rounded text-xs">Pos1設定 (始点)</button>
+              <button id="inv-we-pos2" class="px-2.5 py-1.5 bg-slate-800 hover:bg-slate-700 border border-slate-600 rounded text-xs">Pos2設定 (終点)</button>
+              <span id="we-selection-info" class="text-[11px] text-slate-400">Pos1, Pos2 を指定してください</span>
+            </div>
+            <div class="flex space-x-2">
+              <button id="inv-we-fill" class="px-3 py-1.5 bg-emerald-700 hover:bg-emerald-600 font-bold rounded text-xs text-white">選択ブロックで一括塗潰し</button>
+              <button id="inv-we-clear" class="px-3 py-1.5 bg-rose-900 hover:bg-rose-800 font-bold rounded text-xs text-white">範囲消去 (Air)</button>
+            </div>
+          </div>
+
+          <!-- 5. 建築スタンプ選択詳細 -->
+          <div id="inv-stamp-settings" class="hidden bg-slate-950 p-3 rounded-xl border border-slate-800 space-y-2">
+            <div class="text-xs font-bold text-amber-400">配置スタンプ選択</div>
+            <div class="grid grid-cols-2 sm:grid-cols-3 gap-2 text-xs">
+              <button data-stamp="house" class="inv-stamp-item bg-amber-800 text-white font-bold p-2 rounded border border-amber-600">住宅 (2階建)</button>
+              <button data-stamp="building_mid" class="inv-stamp-item bg-slate-800 text-slate-300 p-2 rounded border border-slate-700">中規模ビル (5階)</button>
+              <button data-stamp="building_tall" class="inv-stamp-item bg-slate-800 text-slate-300 p-2 rounded border border-slate-700">高層ビル (12階)</button>
+              <button data-stamp="bridge" class="inv-stamp-item bg-slate-800 text-slate-300 p-2 rounded border border-slate-700">木製の橋</button>
+              <button data-stamp="stairs" class="inv-stamp-item bg-slate-800 text-slate-300 p-2 rounded border border-slate-700">階段スロープ</button>
+            </div>
+          </div>
+
+          <!-- 5. マネージメントボタン群 -->
+          <div class="border-t border-slate-800 pt-3 flex flex-wrap justify-between items-center gap-2">
+            <button id="inv-btn-shelters" class="px-3 py-2 bg-slate-800 hover:bg-slate-700 text-cyan-300 font-bold rounded-lg border border-slate-700 text-xs">
+              避難所一覧・設定
+            </button>
+            <div class="flex space-x-2">
+              <button id="inv-btn-cloud" class="px-3 py-2 bg-sky-900 hover:bg-sky-800 text-sky-200 font-bold rounded-lg border border-sky-700 text-xs">
+                クラウド保存
+              </button>
+              <button id="inv-btn-clear" class="px-3 py-2 bg-red-950 hover:bg-red-900 text-red-300 font-bold rounded-lg border border-red-800 text-xs">
+                マップ初期化
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div class="pt-2 border-t border-slate-800 flex justify-end">
+          <button id="btn-inventory-confirm" class="bg-cyan-600 hover:bg-cyan-500 text-white font-bold px-5 py-2.5 rounded-xl text-xs shadow-lg">
+            決定して建築に戻る (E)
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 避難所管理モーダル -->
+    <div id="modal-shelters" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4">
+      <div class="bg-slate-900 border border-slate-800 rounded-2xl max-w-lg w-full p-5 space-y-4 shadow-2xl max-h-[85vh] flex flex-col">
+        <div class="flex justify-between items-center border-b border-slate-800 pb-3">
+          <h3 class="font-bold text-base text-cyan-400">避難場所の設定と一覧</h3>
+          <button id="btn-close-shelter-modal" class="text-slate-400 hover:text-white text-lg font-bold">✕</button>
+        </div>
+
+        <div class="text-xs text-slate-300 leading-relaxed">
+          エディタ上で「避難所ブロック」を置いた位置が避難所になります。名前や特徴を自由に編集できます。
+        </div>
+
+        <div id="shelter-list" class="flex-1 overflow-y-auto space-y-2.5 pr-1"></div>
+
+        <div class="pt-2 border-t border-slate-800 flex justify-end">
+          <button id="btn-save-shelters" class="bg-cyan-600 hover:bg-cyan-500 text-white font-bold px-4 py-2 rounded-lg text-xs">
+            設定を保存
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 5. リザルト画面 -->
+    <div id="screen-result" class="hidden fixed inset-0 z-50 flex flex-col items-center justify-center p-4 bg-slate-950/98">
+      <div class="max-w-md w-full bg-slate-900 border border-slate-800 p-6 md:p-8 rounded-2xl shadow-2xl text-center">
+        <div id="result-badge" class="inline-block px-3 py-1 rounded-full text-xs font-black uppercase tracking-wider mb-3 bg-emerald-950 border border-emerald-600 text-emerald-400">
+          [ 避難成功 ]
+        </div>
+        <h2 id="result-title" class="text-2xl md:text-3xl font-black mb-2 text-emerald-400">避難完了</h2>
+        <p id="result-desc" class="text-slate-300 text-xs md:text-sm mb-6 leading-relaxed"></p>
+
+        <div class="bg-slate-950 p-4 rounded-xl border border-slate-800 text-left space-y-2 text-xs mb-6">
+          <div class="flex justify-between"><span class="text-slate-400">被験者ID:</span><span id="res-name" class="font-bold"></span></div>
+          <div class="flex justify-between"><span class="text-slate-400">避難場所:</span><span id="res-dest" class="font-bold text-cyan-400"></span></div>
+          <div class="flex justify-between"><span class="text-slate-400">避難所標高:</span><span id="res-elev" class="font-bold text-emerald-400"></span></div>
+          <div class="flex justify-between"><span class="text-slate-400">最終水位:</span><span id="res-water" class="font-bold text-blue-400"></span></div>
+          <div class="flex justify-between"><span class="text-slate-400">避難時間:</span><span id="res-time" class="font-bold"></span></div>
+          <div class="flex justify-between"><span class="text-slate-400">最終判定:</span><span id="res-status" class="font-bold"></span></div>
+        </div>
+
+        <button id="btn-result-restart" class="w-full bg-cyan-600 hover:bg-cyan-500 text-white font-bold py-3.5 px-6 rounded-xl transition shadow-lg shadow-cyan-900/50 text-sm">
+          タイトルに戻る
+        </button>
+      </div>
+    </div>
+
+    <!-- 6. 管理者用ダッシュボード -->
+    <div id="screen-admin" class="hidden fixed inset-0 z-50 flex flex-col bg-slate-950">
+      <header class="bg-slate-900 border-b border-slate-800 px-6 py-3 flex justify-between items-center">
+        <div class="flex items-center space-x-2">
+          <span class="px-2 py-0.5 bg-cyan-950 border border-cyan-700 text-cyan-300 font-bold rounded text-xs">管理者</span>
+          <h2 class="text-lg font-bold text-cyan-400">避難行動解析ダッシュボード</h2>
+        </div>
+        <button id="btn-admin-close" class="bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold px-4 py-1.5 rounded-lg text-xs transition">
+          閉じる
+        </button>
+      </header>
+
+      <div class="flex-1 flex flex-col md:flex-row overflow-hidden">
+        <div class="w-full md:w-80 border-r border-slate-800 flex flex-col overflow-hidden bg-slate-900/40">
+          <div class="p-3 border-b border-slate-800">
+            <select id="filter-hazard" class="w-full bg-slate-800 border border-slate-700 rounded px-2.5 py-1.5 text-xs text-slate-200">
+              <option value="all">全被験者データ</option>
+              <option value="map-yes">ハザードマップ確認済のみ</option>
+              <option value="map-no">ハザードマップ未確認のみ</option>
+            </select>
+          </div>
+          <div id="session-list" class="flex-1 overflow-y-auto p-2 space-y-2 text-xs">
+            <p class="text-slate-500 text-center p-4">データを読み込み中...</p>
+          </div>
+        </div>
+
+        <div class="flex-1 flex flex-col bg-slate-900/90 overflow-hidden">
+          <div class="p-3 border-b border-slate-800 flex justify-between items-center bg-slate-950/40">
+            <div class="text-xs text-slate-300">
+              <span class="font-bold">避難軌跡マップ</span> (青: 軌跡 / 赤: 低地・水害域 / 緑: 高台)
+            </div>
+            <button id="btn-clear-selection" class="bg-slate-800 hover:bg-slate-700 text-slate-400 px-3 py-1 rounded text-xs">
+              選択解除
+            </button>
+          </div>
+          <div class="flex-1 relative flex items-center justify-center p-4 overflow-hidden">
+            <canvas id="map-canvas" class="bg-slate-950 border border-slate-800 rounded-xl shadow-inner max-w-full max-h-full aspect-square" width="600" height="600"></canvas>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- メインスクリプト -->
     <script type="module" src="/src/main.ts"></script>
   </body>
 </html>
