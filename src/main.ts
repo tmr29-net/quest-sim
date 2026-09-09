@@ -16,18 +16,18 @@ if (SUPABASE_URL && SUPABASE_ANON_KEY) {
 }
 
 // ローカルストレージキー
-const LOCAL_STORAGE_KEY = 'flood_sim_sessions_v7';
-const LOCAL_TRAJECTORY_KEY = 'flood_sim_trajectories_v7';
-const CUSTOM_MAP_KEY = 'flood_sim_voxel_map_v7';
-const SHELTER_LIST_KEY = 'flood_sim_shelters_v7';
+const LOCAL_STORAGE_KEY = 'flood_sim_sessions_v8';
+const LOCAL_TRAJECTORY_KEY = 'flood_sim_trajectories_v8';
+const CUSTOM_MAP_KEY = 'flood_sim_voxel_map_v8';
+const SHELTER_LIST_KEY = 'flood_sim_shelters_v8';
 
 // ==========================================
 //           ボクセル定数 & 定義
 // ==========================================
 export const VOXEL_SIZE = 0.5; // 1ブロック = 0.5m
-export const MAP_GRID_X = 300; // 150m (超広域マップ)
-export const MAP_GRID_Z = 300; // 150m
-export const MAP_GRID_Y = 40;  // 20m高
+export const MAP_GRID_X = 600; // 300m (広島・深川エリア実寸大モデル)
+export const MAP_GRID_Z = 600; // 300m
+export const MAP_GRID_Y = 50;  // 25m高
 
 export const MAX_REACH_DISTANCE = 16.0; // ブロック操作限界距離 (16m)
 
@@ -75,7 +75,7 @@ export interface ShelterInfo {
 
 let voxelMap = new Uint8Array(MAP_GRID_X * MAP_GRID_Y * MAP_GRID_Z);
 let shelters: ShelterInfo[] = [];
-let spawnPoint = { gridX: 150, gridY: 4, gridZ: 250 };
+let spawnPoint = { gridX: 300, gridY: 6, gridZ: 370 };
 
 function getVoxelIndex(x: number, y: number, z: number): number {
   if (x < 0 || x >= MAP_GRID_X || y < 0 || y >= MAP_GRID_Y || z < 0 || z >= MAP_GRID_Z) return -1;
@@ -96,32 +96,52 @@ export function setVoxel(x: number, y: number, z: number, type: BlockType): void
 }
 
 // ==========================================
-//        150m 超広域デフォルトマップ生成
+//  広島・深川エリア (300m×300m) 精密モデル生成
 // ==========================================
 function buildDefaultMap() {
   voxelMap.fill(BLOCK.AIR);
   shelters = [];
 
+  // 道路・河川マスク (建築物が道路や川にはみ出さないよう追跡)
+  const isRoadOrRiver = new Uint8Array(MAP_GRID_X * MAP_GRID_Z);
+
+  // 1. 地形・高低差・河川・堤防の生成
   for (let x = 0; x < MAP_GRID_X; x++) {
+    // 三篠川の中央流路カーブ (緩やかなS字カーブ)
+    const riverCenterZ = 240 + Math.sin(x * 0.009) * 28 + (x / 600) * 15;
+
     for (let z = 0; z < MAP_GRID_Z; z++) {
-      let groundHeight = 3;
-      if (z < 90) {
-        groundHeight = 22 + Math.floor(Math.sin(x * 0.05) * 2);
-      } else if (z < 180) {
-        const progress = (180 - z) / 90;
-        groundHeight = Math.floor(4 + progress * 18);
+      let groundHeight = 5; // 低地ベース標高 2.5m
+
+      // 北側丘陵 (藤和ハイタウン・パインビレッジ高台)
+      if (z < 180) {
+        const northProgress = Math.max(0, (180 - z) / 180);
+        groundHeight = Math.floor(6 + northProgress * 30 + Math.sin(x * 0.04) * 2);
+      }
+      // 南側高台 (下深川南部の丘陵住宅地)
+      else if (z > 430) {
+        const southProgress = Math.max(0, (z - 430) / 170);
+        groundHeight = Math.floor(6 + southProgress * 34 + Math.cos(x * 0.035) * 3);
       } else {
-        groundHeight = 3 + Math.floor(Math.sin(x * 0.08) * 1);
+        // 中央低地氾濫平野 (Z: 180 ~ 430)
+        groundHeight = 5 + Math.floor(Math.sin(x * 0.03 + z * 0.02) * 1);
       }
 
-      const isRiver = (x >= 235 && x <= 270);
-      if (isRiver) groundHeight = Math.min(groundHeight, 2);
+      // 三篠川 流路の掘り込み (水面 Y=2: 標高1.0m)
+      const riverHalfWidth = 22;
+      const dz = z - riverCenterZ;
+      if (Math.abs(dz) <= riverHalfWidth) {
+        groundHeight = 2; // 水面
+        isRoadOrRiver[z * MAP_GRID_X + x] = 2; // 川
+      } else if (Math.abs(dz) <= riverHalfWidth + 6) {
+        // 堤防法面 & 堤防天端 (標高4.0m = Y:8)
+        groundHeight = 8;
+        isRoadOrRiver[z * MAP_GRID_X + x] = 2; // 堤防法面・川沿い
+      }
 
-      const isBranchRiver = (z >= 140 && z <= 155 && x >= 120 && x <= 240);
-      if (isBranchRiver) groundHeight = Math.min(groundHeight, 3);
-
+      // ボクセル充填
       for (let y = 0; y <= groundHeight; y++) {
-        if ((isRiver || isBranchRiver) && y === groundHeight) {
+        if (Math.abs(dz) <= riverHalfWidth && y >= 2) {
           setVoxel(x, y, z, BLOCK.WATER);
         } else if (y === groundHeight) {
           setVoxel(x, y, z, BLOCK.GRASS);
@@ -132,90 +152,339 @@ function buildDefaultMap() {
         }
       }
 
-      // 川の転落防止バリア (川岸 X:234, X:271)
-      if (x === 234 || x === 271) {
+      // 川の転落防止用バリア
+      if (Math.abs(dz) === riverHalfWidth + 1) {
         setVoxel(x, groundHeight + 1, z, BLOCK.BARRIER);
         setVoxel(x, groundHeight + 2, z, BLOCK.BARRIER);
       }
     }
   }
 
-  // 道路
-  const makeRoad = (startZ: number, endZ: number, startX: number, endX: number) => {
-    for (let x = startX; x <= endX; x++) {
-      for (let z = startZ; z <= endZ; z++) {
-        for (let y = MAP_GRID_Y - 1; y >= 0; y--) {
-          const b = getVoxel(x, y, z);
-          if (b === BLOCK.GRASS || b === BLOCK.DIRT) {
-            setVoxel(x, y, z, BLOCK.ASPHALT);
-            break;
+  // 2. 道路網の整備 (地表にアスファルトを敷設し、建築禁止マスクを記録)
+  const layRoadSegment = (x1: number, z1: number, x2: number, z2: number, width: number) => {
+    const steps = Math.max(Math.abs(x2 - x1), Math.abs(z2 - z1)) * 2;
+    for (let i = 0; i <= steps; i++) {
+      const t = steps > 0 ? i / steps : 0;
+      const cx = Math.round(x1 + (x2 - x1) * t);
+      const cz = Math.round(z1 + (z2 - z1) * t);
+
+      for (let dx = -Math.floor(width / 2); dx <= Math.floor(width / 2); dx++) {
+        for (let dz = -Math.floor(width / 2); dz <= Math.floor(width / 2); dz++) {
+          const rx = cx + dx;
+          const rz = cz + dz;
+          if (rx < 0 || rx >= MAP_GRID_X || rz < 0 || rz >= MAP_GRID_Z) continue;
+
+          // 川の水域には直接道路を置かない（橋部分以外）
+          if (isRoadOrRiver[rz * MAP_GRID_X + rx] === 2 && (rx < 318 || rx > 332)) {
+            continue;
+          }
+
+          isRoadOrRiver[rz * MAP_GRID_X + rx] = 1; // 道路
+
+          for (let y = MAP_GRID_Y - 1; y >= 0; y--) {
+            const b = getVoxel(rx, y, rz);
+            if (b === BLOCK.GRASS || b === BLOCK.DIRT || b === BLOCK.STONE) {
+              setVoxel(rx, y, rz, BLOCK.ASPHALT);
+              break;
+            }
           }
         }
       }
     }
   };
 
-  makeRoad(30, 270, 145, 154);
-  makeRoad(30, 270, 60, 67);
-  makeRoad(50, 56, 30, 235);
-  makeRoad(130, 136, 30, 235);
-  makeRoad(215, 221, 30, 235);
+  // 曲線道路描画ヘルパー (ベジェ風またはウェイポイント列)
+  const layCurvedRoad = (points: [number, number][], width: number) => {
+    for (let i = 0; i < points.length - 1; i++) {
+      layRoadSegment(points[i][0], points[i][1], points[i + 1][0], points[i + 1][1], width);
+    }
+  };
 
-  // 橋
-  for (let x = 230; x <= 275; x++) {
-    for (let z = 215; z <= 221; z++) {
-      setVoxel(x, 5, z, BLOCK.WOOD);
-      setVoxel(x, 6, z, BLOCK.AIR);
-      if (z === 215 || z === 221) setVoxel(x, 6, z, BLOCK.WOOD);
+  // ① 堤防沿い幹線道路 (北岸 & 南岸: 川のカーブに自然に沿って走る)
+  for (let x = 0; x < MAP_GRID_X; x++) {
+    const riverCenterZ = 240 + Math.sin(x * 0.009) * 28 + (x / 600) * 15;
+    // 北岸堤防上道路
+    const northBankZ = Math.round(riverCenterZ - 28);
+    for (let w = -2; w <= 2; w++) {
+      const rz = northBankZ + w;
+      if (rz >= 0 && rz < MAP_GRID_Z) {
+        isRoadOrRiver[rz * MAP_GRID_X + x] = 1;
+        for (let y = MAP_GRID_Y - 1; y >= 0; y--) {
+          const b = getVoxel(x, y, rz);
+          if (b === BLOCK.GRASS || b === BLOCK.DIRT || b === BLOCK.STONE) {
+            setVoxel(x, y, rz, BLOCK.ASPHALT);
+            break;
+          }
+        }
+      }
+    }
+    // 南岸堤防上道路
+    const southBankZ = Math.round(riverCenterZ + 28);
+    for (let w = -2; w <= 2; w++) {
+      const rz = southBankZ + w;
+      if (rz >= 0 && rz < MAP_GRID_Z) {
+        isRoadOrRiver[rz * MAP_GRID_X + x] = 1;
+        for (let y = MAP_GRID_Y - 1; y >= 0; y--) {
+          const b = getVoxel(x, y, rz);
+          if (b === BLOCK.GRASS || b === BLOCK.DIRT || b === BLOCK.STONE) {
+            setVoxel(x, y, rz, BLOCK.ASPHALT);
+            break;
+          }
+        }
+      }
     }
   }
 
-  // 建物
-  const buildBuilding = (bx: number, bz: number, bw: number, bd: number, bh: number, wallType: BlockType) => {
-    let baseY = 3;
-    for (let y = MAP_GRID_Y - 1; y >= 0; y--) {
-      if (getVoxel(bx, y, bz) !== BLOCK.AIR) {
-        baseY = y + 1;
-        break;
+  // ② 主要幹線道路網 (広島・深川の実際の湾曲・傾斜道路を再現)
+  // 西側県道ルート (山裾を縫う幹線)
+  layCurvedRoad([[70, 20], [80, 100], [90, 200], [105, 300], [115, 450], [120, 580]], 6);
+
+  // 中央大橋ルート (国道・主要連絡橋へのアプローチ)
+  layCurvedRoad([[330, 20], [328, 120], [325, 200], [325, 280], [320, 380], [310, 480], [305, 580]], 7);
+
+  // 東側駅前連絡ルート
+  layCurvedRoad([[500, 20], [495, 140], [485, 260], [470, 340], [460, 460], [450, 580]], 5);
+
+  // 北部高台アクセス道 (藤和ハイタウン・パインビレッジ前)
+  layCurvedRoad([[20, 80], [120, 85], [240, 95], [360, 90], [480, 100], [580, 105]], 5);
+  layCurvedRoad([[30, 140], [150, 145], [280, 150], [420, 145], [570, 150]], 4);
+
+  // 南部市街地メイン通り
+  layCurvedRoad([[20, 310], [140, 315], [270, 320], [400, 315], [580, 325]], 6);
+  layCurvedRoad([[20, 365], [160, 360], [300, 365], [440, 360], [580, 365]], 5);
+  layCurvedRoad([[20, 420], [180, 425], [320, 415], [460, 425], [580, 420]], 5);
+
+  // 南部高台住宅地連絡道 & 山手道
+  layCurvedRoad([[20, 480], [150, 475], [300, 485], [450, 475], [580, 485]], 5);
+  layCurvedRoad([[20, 545], [160, 540], [310, 550], [460, 540], [580, 545]], 4);
+
+  // 生活道路・路地 (格子を崩した自然な住宅街の小道)
+  layCurvedRoad([[180, 20], [185, 180]], 3);
+  layCurvedRoad([[250, 20], [245, 180]], 3);
+  layCurvedRoad([[410, 20], [415, 180]], 3);
+
+  layCurvedRoad([[60, 270], [65, 430]], 3);
+  layCurvedRoad([[190, 270], [185, 430]], 4);
+  layCurvedRoad([[250, 270], [255, 430]], 3);
+  layCurvedRoad([[380, 270], [375, 430]], 4);
+  layCurvedRoad([[520, 270], [525, 430]], 3);
+
+  layCurvedRoad([[80, 430], [85, 570]], 3);
+  layCurvedRoad([[220, 430], [215, 570]], 3);
+  layCurvedRoad([[390, 430], [395, 570]], 3);
+  layCurvedRoad([[510, 430], [505, 570]], 3);
+
+  // 3. 深川大橋 (中央南北大橋 X:322~328, Z:200~285)
+  for (let x = 322; x <= 328; x++) {
+    for (let z = 205; z <= 275; z++) {
+      isRoadOrRiver[z * MAP_GRID_X + x] = 1;
+      setVoxel(x, 9, z, BLOCK.CONCRETE);
+      setVoxel(x, 10, z, BLOCK.ASPHALT);
+      if (x === 322 || x === 328) {
+        setVoxel(x, 11, z, BLOCK.WOOD); // 欄干
+      }
+    }
+  }
+
+  // 4. JR芸備線 線路・盛土 (南側を東西に斜めに走る X:0,Z:375 -> X:599,Z:310)
+  for (let x = 0; x < MAP_GRID_X; x++) {
+    const trackZ = Math.round(375 - (x / 600) * 70);
+    for (let w = -2; w <= 2; w++) {
+      const tz = trackZ + w;
+      if (tz >= 0 && tz < MAP_GRID_Z) {
+        isRoadOrRiver[tz * MAP_GRID_X + x] = 1; // 鉄道敷地マスク
+        for (let y = MAP_GRID_Y - 1; y >= 0; y--) {
+          const b = getVoxel(x, y, tz);
+          if (b !== BLOCK.AIR) {
+            setVoxel(x, y + 1, tz, BLOCK.STONE);   // バラスト軌道盛土
+            if (w === 0) setVoxel(x, y + 2, tz, BLOCK.WOOD); // 枕木・レール
+            break;
+          }
+        }
+      }
+    }
+  }
+
+  // 5. 建築物生成ヘルパー (道路・河川・他建築物への干渉を完全防止 & 土地の水平基礎造成)
+  const canPlaceBuilding = (bx: number, bz: number, bw: number, bd: number, margin = 1): boolean => {
+    if (bx - margin < 2 || bx + bw + margin >= MAP_GRID_X - 2 || bz - margin < 2 || bz + bd + margin >= MAP_GRID_Z - 2) {
+      return false;
+    }
+    for (let x = bx - margin; x < bx + bw + margin; x++) {
+      for (let z = bz - margin; z < bz + bd + margin; z++) {
+        if (isRoadOrRiver[z * MAP_GRID_X + x] !== 0) {
+          return false; // 道路や川、既存建築と重なる
+        }
+      }
+    }
+    return true;
+  };
+
+  const buildStructure = (
+    bx: number, 
+    bz: number, 
+    bw: number, 
+    bd: number, 
+    bh: number, 
+    wallType: BlockType, 
+    style: 'standard' | 'pitched_roof' | 'glass_office' | 'apartment' = 'standard'
+  ) => {
+    if (!canPlaceBuilding(bx, bz, bw, bd, 1)) return false;
+
+    // 敷地内の最高地表高さを取得して基礎造成 (傾斜地でも埋まらないようにする)
+    let maxY = 1;
+    for (let x = bx; x < bx + bw; x++) {
+      for (let z = bz; z < bz + bd; z++) {
+        for (let y = MAP_GRID_Y - 1; y >= 0; y--) {
+          const b = getVoxel(x, y, z);
+          if (b !== BLOCK.AIR && b !== BLOCK.WATER && b !== BLOCK.BARRIER) {
+            if (y > maxY) maxY = y;
+            break;
+          }
+        }
       }
     }
 
+    const baseY = maxY + 1;
+
+    // 1. 基礎（土台）の均し
+    for (let x = bx; x < bx + bw; x++) {
+      for (let z = bz; z < bz + bd; z++) {
+        isRoadOrRiver[z * MAP_GRID_X + x] = 3; // 建築済みマスク
+        for (let y = 0; y < baseY; y++) {
+          if (getVoxel(x, y, z) === BLOCK.AIR) {
+            setVoxel(x, y, z, BLOCK.STONE);
+          }
+        }
+      }
+    }
+
+    // 2. 建物の躯体構築
     for (let x = bx; x < bx + bw; x++) {
       for (let z = bz; z < bz + bd; z++) {
         for (let y = baseY; y < baseY + bh; y++) {
           const isEdge = (x === bx || x === bx + bw - 1 || z === bz || z === bz + bd - 1);
-          const isRoof = (y === baseY + bh - 1);
-          const isWindow = (isEdge && (y % 4 === 2) && (x % 3 === 0 || z % 3 === 0));
+          const isCorner = ((x === bx || x === bx + bw - 1) && (z === bz || z === bz + bd - 1));
+          const relY = y - baseY;
+          const isFloor = (relY % 4 === 0 || relY === bh - 1);
 
-          if (isRoof) setVoxel(x, y, z, BLOCK.CONCRETE);
-          else if (isWindow) setVoxel(x, y, z, BLOCK.GLASS);
-          else if (isEdge) setVoxel(x, y, z, wallType);
+          if (style === 'glass_office') {
+            if (isFloor) setVoxel(x, y, z, BLOCK.CONCRETE);
+            else if (isCorner) setVoxel(x, y, z, BLOCK.CONCRETE);
+            else if (isEdge) setVoxel(x, y, z, BLOCK.GLASS);
+          } else if (style === 'apartment') {
+            if (isFloor) setVoxel(x, y, z, BLOCK.CONCRETE);
+            else if (isEdge && relY % 4 === 2 && (x % 3 === 0 || z % 3 === 0)) setVoxel(x, y, z, BLOCK.GLASS);
+            else if (isEdge) setVoxel(x, y, z, wallType);
+          } else {
+            // standard
+            if (isFloor) setVoxel(x, y, z, BLOCK.CONCRETE);
+            else if (isEdge && relY % 3 === 1 && (x % 2 === 0 || z % 2 === 0)) setVoxel(x, y, z, BLOCK.GLASS);
+            else if (isEdge) setVoxel(x, y, z, wallType);
+          }
+        }
+
+        // 三角屋根（傾斜屋根）オプション
+        if (style === 'pitched_roof') {
+          const roofCenterZ = bz + Math.floor(bd / 2);
+          const distToCenter = Math.abs(z - roofCenterZ);
+          const roofHeight = Math.max(0, Math.floor(bd / 2) - distToCenter);
+          for (let ry = 0; ry <= roofHeight; ry++) {
+            setVoxel(x, baseY + bh + ry, z, BLOCK.BRICK);
+          }
         }
       }
     }
-    return baseY + bh - 1;
+
+    // 敷地の周囲に小さな庭・植樹を確率で配置
+    if (bw >= 10 && bd >= 10 && style !== 'glass_office') {
+      const treeX = bx - 1;
+      const treeZ = bz - 1;
+      if (treeX > 2 && treeZ > 2 && isRoadOrRiver[treeZ * MAP_GRID_X + treeX] === 0) {
+        setVoxel(treeX, baseY, treeZ, BLOCK.WOOD);
+        setVoxel(treeX, baseY + 1, treeZ, BLOCK.WOOD);
+        setVoxel(treeX, baseY + 2, treeZ, BLOCK.GRASS);
+      }
+    }
+
+    return true;
   };
 
-  buildBuilding(90, 230, 24, 18, 8, BLOCK.BRICK);
-  setVoxel(102, 12, 239, BLOCK.SHELTER);
-  shelters.push({ id: 'shelter-1', name: '中央小学校体育館 (低地・浸水危険)', gridX: 102, gridY: 12, gridZ: 239, notes: '川に近く標高が低いため、堤防決壊時に水没します。' });
+  // 6. ランドマーク建築の精密配置
+  // ① 藤和ハイタウン深川 (北西高台の大規模マンション群)
+  buildStructure(55, 45, 26, 20, 18, BLOCK.CONCRETE, 'apartment');
+  buildStructure(90, 40, 24, 18, 16, BLOCK.CONCRETE, 'apartment');
+  buildStructure(125, 45, 22, 18, 14, BLOCK.CONCRETE, 'apartment');
 
-  const roofY = buildBuilding(170, 230, 16, 16, 22, BLOCK.CONCRETE);
-  setVoxel(178, roofY, 238, BLOCK.SHELTER);
-  shelters.push({ id: 'shelter-2', name: '防災テクノタワー屋上 (垂直避難ビル)', gridX: 178, gridY: roofY, gridZ: 238, notes: '低地ですが頑丈な高層ビルの屋上で、津波を完全に回避できます。' });
+  // ② パインビレッジ (北東高台の住宅団地)
+  buildStructure(345, 45, 28, 22, 16, BLOCK.CONCRETE, 'apartment');
+  buildStructure(385, 40, 24, 18, 14, BLOCK.CONCRETE, 'apartment');
 
-  buildBuilding(80, 140, 18, 14, 10, BLOCK.CONCRETE);
-  setVoxel(89, 19, 147, BLOCK.SHELTER);
-  shelters.push({ id: 'shelter-3', name: '地区公民館 (中台・床上浸水)', gridX: 89, gridY: 19, gridZ: 147, notes: '坂の中腹にあり、足元付近まで浸水しますが2階以上で生存可能です。' });
+  // ③ デュオ下深川駅前 & 駅舎 (南東側 JR線沿い)
+  buildStructure(465, 335, 24, 18, 16, BLOCK.CONCRETE, 'glass_office');
+  buildStructure(435, 345, 18, 12, 6, BLOCK.BRICK, 'standard'); // 駅舎
 
-  setVoxel(70, 23, 45, BLOCK.SHELTER);
-  shelters.push({ id: 'shelter-4', name: '北山展望公園 (高台・完全安全)', gridX: 70, gridY: 23, gridZ: 45, notes: '標高11m以上の高台で、水害の影響を一切受けない最も確実な避難所です。' });
+  // ④ 避難施設候補の学校・公共施設・ビル
+  buildStructure(150, 375, 30, 20, 10, BLOCK.BRICK, 'standard'); // 深川小学校風 校舎・体育館
+  buildStructure(335, 335, 20, 18, 22, BLOCK.CONCRETE, 'glass_office'); // 防災高層ビル
 
-  for (let i = 0; i < 6; i++) {
-    buildBuilding(20 + i * 18, 245, 10, 10, 6, BLOCK.WOOD);
+  // 7. 自然で有機的な街並み生成 (街区ごとに区画割りし、道路沿いに建物をランダムな間隔と多様なサイズで配置)
+  // 擬似乱数 (シード付きで常に一貫したリアルな街並み)
+  let seed = 12345;
+  const pseudoRandom = () => {
+    seed = (seed * 9301 + 49297) % 233280;
+    return seed / 233280;
+  };
+
+  const placeOrganicZone = (
+    minX: number, maxX: number, 
+    minZ: number, maxZ: number, 
+    density: number,
+    types: ('house_wood' | 'house_brick' | 'modern' | 'commercial')[]
+  ) => {
+    for (let x = minX; x < maxX; x += 14 + Math.floor(pseudoRandom() * 10)) {
+      for (let z = minZ; z < maxZ; z += 14 + Math.floor(pseudoRandom() * 10)) {
+        if (pseudoRandom() > density) continue;
+
+        const bw = 8 + Math.floor(pseudoRandom() * 7);  // 4m〜7.5m 幅
+        const bd = 8 + Math.floor(pseudoRandom() * 7);  // 4m〜7.5m 奥行
+        const typeChoice = types[Math.floor(pseudoRandom() * types.length)];
+
+        if (typeChoice === 'house_wood') {
+          buildStructure(x, z, bw, bd, 5 + Math.floor(pseudoRandom() * 3), BLOCK.WOOD, 'pitched_roof');
+        } else if (typeChoice === 'house_brick') {
+          buildStructure(x, z, bw, bd, 6 + Math.floor(pseudoRandom() * 3), BLOCK.BRICK, 'pitched_roof');
+        } else if (typeChoice === 'modern') {
+          buildStructure(x, z, bw, bd, 7 + Math.floor(pseudoRandom() * 5), BLOCK.CONCRETE, 'apartment');
+        } else if (typeChoice === 'commercial') {
+          buildStructure(x, z, bw + 2, bd + 2, 8 + Math.floor(pseudoRandom() * 8), BLOCK.CONCRETE, 'glass_office');
+        }
+      }
+    }
+  };
+
+  // 北部高台住宅街 (Z: 25 ~ 170)
+  placeOrganicZone(25, 570, 25, 75, 0.85, ['modern', 'house_brick']);
+  placeOrganicZone(25, 570, 105, 175, 0.88, ['house_wood', 'house_brick', 'modern']);
+
+  // 中央低地・浸水想定市街地 (Z: 275 ~ 425)
+  placeOrganicZone(25, 570, 275, 305, 0.85, ['commercial', 'modern', 'house_brick']);
+  placeOrganicZone(25, 570, 325, 360, 0.90, ['house_wood', 'house_brick', 'modern', 'commercial']);
+  placeOrganicZone(25, 570, 375, 425, 0.88, ['house_wood', 'house_brick', 'modern']);
+
+  // 南部高台住宅地 (Z: 440 ~ 575)
+  placeOrganicZone(25, 570, 440, 520, 0.85, ['house_wood', 'house_brick']);
+  placeOrganicZone(25, 570, 525, 575, 0.80, ['house_wood']);
+
+  // 開始地点 (南側低地の住宅街道路上 X:300, Z:365)
+  let spawnY = 5;
+  for (let y = MAP_GRID_Y - 1; y >= 0; y--) {
+    if (getVoxel(300, y, 365) !== BLOCK.AIR) {
+      spawnY = y + 1;
+      break;
+    }
   }
-
-  spawnPoint = { gridX: 150, gridY: 4, gridZ: 250 };
+  spawnPoint = { gridX: 300, gridY: spawnY, gridZ: 365 };
   setVoxel(spawnPoint.gridX, spawnPoint.gridY, spawnPoint.gridZ, BLOCK.SPAWN);
 }
 
@@ -476,6 +745,14 @@ const player = {
   onGround: false
 };
 
+// シミュレーション時の自由三人称カメラパラメータ
+let gameCamYaw = Math.PI; // プレイヤーの背後から見る角度
+let gameCamPitch = 0.35;  // 見下ろし角度 (rad)
+let gameCamDist = 6.0;    // カメラ距離 (m)
+let isGameDragging = false;
+let gameDragStartX = 0;
+let gameDragStartY = 0;
+
 let playerMesh: THREE.Mesh;
 const gameKeys = { w: false, a: false, s: false, d: false };
 const gameJoystick = { active: false, dx: 0, dy: 0 };
@@ -564,6 +841,10 @@ async function startSimulationMode(mapType: string) {
   player.vel.set(0, 0, 0);
   player.facingAngle = Math.PI;
 
+  gameCamYaw = Math.PI;
+  gameCamPitch = 0.35;
+  gameCamDist = 6.0;
+
   waterLevel = 0.2;
   gameTime = 0;
   isPlaying = true;
@@ -572,19 +853,19 @@ async function startSimulationMode(mapType: string) {
   gameClock.getDelta();
 }
 
-// 精密な衝突判定 & 段差登り（壁すり抜けを完全防止）
+// 精密な衝突判定 & 段差登り & カメラ向きに連動した直感的移動
 function updateGamePhysics(dt: number) {
-  let moveX = 0;
-  let moveZ = 0;
+  let rawX = 0;
+  let rawZ = 0;
 
-  if (gameKeys.w) moveZ -= 1;
-  if (gameKeys.s) moveZ += 1;
-  if (gameKeys.a) moveX -= 1;
-  if (gameKeys.d) moveX += 1;
+  if (gameKeys.w) rawZ -= 1;
+  if (gameKeys.s) rawZ += 1;
+  if (gameKeys.a) rawX -= 1;
+  if (gameKeys.d) rawX += 1;
 
   if (gameJoystick.active) {
-    moveX = gameJoystick.dx;
-    moveZ = gameJoystick.dy;
+    rawX = gameJoystick.dx;
+    rawZ = gameJoystick.dy;
   }
 
   let moveSpeed = player.speed;
@@ -596,13 +877,23 @@ function updateGamePhysics(dt: number) {
     else moveSpeed *= 0.8;
   }
 
-  const inputDir = new THREE.Vector3(moveX, 0, moveZ);
-  if (inputDir.lengthSq() > 0.001) {
-    inputDir.normalize();
-    player.facingAngle = Math.atan2(inputDir.x, inputDir.z);
+  // カメラの水平向き (gameCamYaw) に応じた移動方向を算出
+  const forwardX = -Math.sin(gameCamYaw);
+  const forwardZ = -Math.cos(gameCamYaw);
+  const rightX = -forwardZ; // 90度回転
+  const rightZ = forwardX;
 
-    player.vel.x = inputDir.x * moveSpeed;
-    player.vel.z = inputDir.z * moveSpeed;
+  const moveDirX = rawX * rightX - rawZ * forwardX;
+  const moveDirZ = rawX * rightZ - rawZ * forwardZ;
+  const moveLen = Math.sqrt(moveDirX * moveDirX + moveDirZ * moveDirZ);
+
+  if (moveLen > 0.001) {
+    const dirX = moveDirX / moveLen;
+    const dirZ = moveDirZ / moveLen;
+    player.facingAngle = Math.atan2(dirX, dirZ);
+
+    player.vel.x = dirX * moveSpeed;
+    player.vel.z = dirZ * moveSpeed;
   } else {
     player.vel.x = 0;
     player.vel.z = 0;
@@ -673,13 +964,18 @@ function updateGamePhysics(dt: number) {
     endSimulation('drowned');
   }
 
+  // 自由回転三人称カメラの位置計算
+  const camOffsetX = gameCamDist * Math.sin(gameCamYaw) * Math.cos(gameCamPitch);
+  const camOffsetY = gameCamDist * Math.sin(gameCamPitch) + 1.2;
+  const camOffsetZ = gameCamDist * Math.cos(gameCamYaw) * Math.cos(gameCamPitch);
+
   const targetCamPos = new THREE.Vector3(
-    player.pos.x,
-    player.pos.y + 3.6,
-    player.pos.z + 6.2
+    player.pos.x + camOffsetX,
+    player.pos.y + camOffsetY,
+    player.pos.z + camOffsetZ
   );
-  gameCamera.position.lerp(targetCamPos, 0.1);
-  gameCamera.lookAt(player.pos.x, player.pos.y + 1.2, player.pos.z);
+  gameCamera.position.lerp(targetCamPos, 0.15);
+  gameCamera.lookAt(player.pos.x, player.pos.y + 1.0, player.pos.z);
 }
 
 function getStepUpHeight(px: number, py: number, pz: number): number | null {
@@ -1134,20 +1430,58 @@ function applyStampAtTarget(stampType: string) {
   const bz = targetVoxelPos.z;
 
   if (stampType === 'house') {
+    // 木造住宅 (2階建)
     for (let x = 0; x < 10; x++) {
       for (let z = 0; z < 10; z++) {
         for (let y = 0; y < 8; y++) {
           const isWall = (x === 0 || x === 9 || z === 0 || z === 9);
           const isFloor = (y === 0 || y === 4 || y === 7);
-          const isWindow = (isWall && (y === 2 || y === 6) && (x % 3 === 0 || z % 3 === 0));
+          const isWindow = (isWall && (y === 2 || y === 5) && (x % 3 === 0 || z % 3 === 0));
 
           if (isFloor) setVoxel(bx + x, by + y, bz + z, BLOCK.WOOD);
           else if (isWindow) setVoxel(bx + x, by + y, bz + z, BLOCK.GLASS);
+          else if (isWall) setVoxel(bx + x, by + y, bz + z, BLOCK.WOOD);
+        }
+      }
+    }
+  } else if (stampType === 'house_brick') {
+    // 洋風レンガ住宅 (傾斜屋根付き)
+    for (let x = 0; x < 12; x++) {
+      for (let z = 0; z < 10; z++) {
+        for (let y = 0; y < 8; y++) {
+          const isWall = (x === 0 || x === 11 || z === 0 || z === 9);
+          const isFloor = (y === 0 || y === 4 || y === 7);
+          const isWindow = (isWall && (y === 2 || y === 5) && (x % 3 === 0 || z % 3 === 0));
+
+          if (isFloor) setVoxel(bx + x, by + y, bz + z, BLOCK.CONCRETE);
+          else if (isWindow) setVoxel(bx + x, by + y, bz + z, BLOCK.GLASS);
           else if (isWall) setVoxel(bx + x, by + y, bz + z, BLOCK.BRICK);
+        }
+        // 屋根
+        const distToCenter = Math.abs(z - 5);
+        const roofHeight = Math.max(0, 4 - distToCenter);
+        for (let ry = 0; ry <= roofHeight; ry++) {
+          setVoxel(bx + x, by + 8 + ry, bz + z, BLOCK.BRICK);
+        }
+      }
+    }
+  } else if (stampType === 'house_modern') {
+    // 近代アパート (3階建)
+    for (let x = 0; x < 14; x++) {
+      for (let z = 0; z < 12; z++) {
+        for (let y = 0; y < 12; y++) {
+          const isWall = (x === 0 || x === 13 || z === 0 || z === 11);
+          const isFloor = (y % 4 === 0 || y === 11);
+          const isWindow = (isWall && (y % 4 === 2) && (x % 3 === 0 || z % 3 === 0));
+
+          if (isFloor) setVoxel(bx + x, by + y, bz + z, BLOCK.CONCRETE);
+          else if (isWindow) setVoxel(bx + x, by + y, bz + z, BLOCK.GLASS);
+          else if (isWall) setVoxel(bx + x, by + y, bz + z, BLOCK.CONCRETE);
         }
       }
     }
   } else if (stampType === 'building_mid') {
+    // 中規模ビル (5階)
     for (let x = 0; x < 14; x++) {
       for (let z = 0; z < 14; z++) {
         for (let y = 0; y < 16; y++) {
@@ -1162,6 +1496,7 @@ function applyStampAtTarget(stampType: string) {
       }
     }
   } else if (stampType === 'building_tall') {
+    // 高層ビル (12階)
     for (let x = 0; x < 16; x++) {
       for (let z = 0; z < 16; z++) {
         for (let y = 0; y < 30; y++) {
@@ -1175,6 +1510,36 @@ function applyStampAtTarget(stampType: string) {
         }
       }
     }
+  } else if (stampType === 'shelter_tower') {
+    // 津波・高所避難タワー (頑強な柱と最上階避難所)
+    for (let x = 0; x < 12; x++) {
+      for (let z = 0; z < 12; z++) {
+        const isPillar = (
+          (x <= 1 || x >= 10) && (z <= 1 || z >= 10) || 
+          (x >= 5 && x <= 6 && z >= 5 && z <= 6)
+        );
+        for (let y = 0; y < 24; y++) {
+          if (y === 0 || y === 12 || y === 23) {
+            setVoxel(bx + x, by + y, bz + z, BLOCK.CONCRETE);
+            if (y === 23 && (x === 0 || x === 11 || z === 0 || z === 11)) {
+              setVoxel(bx + x, by + y + 1, bz + z, BLOCK.CONCRETE); // 手すり
+            }
+          } else if (isPillar) {
+            setVoxel(bx + x, by + y, bz + z, BLOCK.CONCRETE);
+          }
+        }
+      }
+    }
+    // 最上階中央に避難所ブロックを設置
+    setVoxel(bx + 6, by + 24, bz + 6, BLOCK.SHELTER);
+    shelters.push({
+      id: `shelter-${Date.now()}`,
+      name: `津波避難タワー #${shelters.length + 1}`,
+      gridX: bx + 6,
+      gridY: by + 24,
+      gridZ: bz + 6,
+      notes: `標高 ${((by + 24) * VOXEL_SIZE).toFixed(1)}m`
+    });
   } else if (stampType === 'bridge') {
     for (let x = 0; x < 20; x++) {
       for (let z = 0; z < 8; z++) {
@@ -1190,6 +1555,23 @@ function applyStampAtTarget(stampType: string) {
         }
       }
     }
+  } else if (stampType === 'park') {
+    // 街角の小さな緑地・公園・ベンチ
+    for (let x = 0; x < 12; x++) {
+      for (let z = 0; z < 12; z++) {
+        setVoxel(bx + x, by, bz + z, BLOCK.GRASS);
+      }
+    }
+    // 樹木
+    setVoxel(bx + 3, by + 1, bz + 3, BLOCK.WOOD);
+    setVoxel(bx + 3, by + 2, bz + 3, BLOCK.WOOD);
+    setVoxel(bx + 3, by + 3, bz + 3, BLOCK.GRASS);
+    setVoxel(bx + 8, by + 1, bz + 8, BLOCK.WOOD);
+    setVoxel(bx + 8, by + 2, bz + 8, BLOCK.WOOD);
+    setVoxel(bx + 8, by + 3, bz + 8, BLOCK.GRASS);
+    // ベンチ
+    setVoxel(bx + 6, by + 1, bz + 5, BLOCK.WOOD);
+    setVoxel(bx + 6, by + 1, bz + 6, BLOCK.WOOD);
   }
 
   refreshEditorVoxelScene();
@@ -1427,6 +1809,69 @@ function setupEventListeners() {
     gameJoystick.dx = dx;
     gameJoystick.dy = dy;
   });
+
+  // シミュレーション時の三人称視点ドラッグ操作 (マウス & タッチ)
+  const gameContainer = document.getElementById('game-canvas-container')!;
+  gameContainer.addEventListener('mousedown', (e: MouseEvent) => {
+    if (!isPlaying) return;
+    isGameDragging = true;
+    gameDragStartX = e.clientX;
+    gameDragStartY = e.clientY;
+  });
+
+  window.addEventListener('mousemove', (e: MouseEvent) => {
+    if (!isPlaying || !isGameDragging) return;
+    const dx = e.clientX - gameDragStartX;
+    const dy = e.clientY - gameDragStartY;
+    gameDragStartX = e.clientX;
+    gameDragStartY = e.clientY;
+
+    gameCamYaw -= dx * 0.006;
+    gameCamPitch = Math.max(0.05, Math.min(1.4, gameCamPitch + dy * 0.005));
+  });
+
+  window.addEventListener('mouseup', () => {
+    isGameDragging = false;
+  });
+
+  // タッチスワイプによる視点回転
+  let gameTouchCamId: number | null = null;
+  let gameTouchStartX = 0;
+  let gameTouchStartY = 0;
+
+  gameContainer.addEventListener('touchstart', (e: TouchEvent) => {
+    if (!isPlaying) return;
+    const touch = e.changedTouches[0];
+    gameTouchCamId = touch.identifier;
+    gameTouchStartX = touch.clientX;
+    gameTouchStartY = touch.clientY;
+  }, { passive: true });
+
+  window.addEventListener('touchmove', (e: TouchEvent) => {
+    if (!isPlaying || gameTouchCamId === null) return;
+    for (let i = 0; i < e.changedTouches.length; i++) {
+      const t = e.changedTouches[i];
+      if (t.identifier === gameTouchCamId) {
+        const dx = t.clientX - gameTouchStartX;
+        const dy = t.clientY - gameTouchStartY;
+        gameTouchStartX = t.clientX;
+        gameTouchStartY = t.clientY;
+
+        gameCamYaw -= dx * 0.007;
+        gameCamPitch = Math.max(0.05, Math.min(1.4, gameCamPitch + dy * 0.006));
+      }
+    }
+  }, { passive: true });
+
+  const endTouchCam = (e: TouchEvent) => {
+    for (let i = 0; i < e.changedTouches.length; i++) {
+      if (e.changedTouches[i].identifier === gameTouchCamId) {
+        gameTouchCamId = null;
+      }
+    }
+  };
+  window.addEventListener('touchend', endTouchCam);
+  window.addEventListener('touchcancel', endTouchCam);
 
   setupJoystick('editor-joystick-zone', 'editor-joystick-handle', (dx, dy, active) => {
     editorJoystick.active = active;
@@ -1779,39 +2224,46 @@ async function endSimulation(reason: 'evacuated' | 'drowned' | 'timeout', shelte
   let title = '避難完了 (安全)';
   let desc = '';
   const finalElevation = player.pos.y;
-  const finalWater = waterLevel;
+  // 本水害シナリオの想定最高水位 (300秒時点の最高到達水位: 約10.5m)
+  const PEAK_WATER_LEVEL = 0.2 + 0.038 * (MAX_GAME_TIME - WATER_START_SEC); // 約10.46m
+  let inundationDepth = 0;
 
   const badgeElem = document.getElementById('result-badge')!;
 
   if (reason === 'evacuated' && shelter) {
     currentSession.selected_destination = shelter.name;
     const shelterY = shelter.gridY * VOXEL_SIZE;
+    inundationDepth = Math.max(0, Number((PEAK_WATER_LEVEL - shelterY).toFixed(2)));
 
-    if (shelterY > finalWater + 1.0) {
+    // 到達時間に関係なく、この避難所がピーク時に水没するかで最終安全性を判定
+    if (shelterY >= PEAK_WATER_LEVEL + 0.5) {
+      // 想定最高水位より高く完全安全 (北山展望公園・高層ビル屋上など)
       status = 'survived';
-      title = '避難成功 (完全安全)';
+      title = '避難成功 (完全安全・高台)';
       badgeElem.innerText = '[ 避難成功 ]';
       badgeElem.className = 'inline-block px-3 py-1 rounded-full text-xs font-black uppercase tracking-wider mb-3 bg-emerald-950 border border-emerald-600 text-emerald-400';
-      desc = `【避難成功】標高の高い「${shelter.name}」に到達しました。浸水深は0mで、水害の影響を受けずに安全を確保できました。`;
-    } else if (shelterY >= finalWater - 0.3) {
+      desc = `【避難成功】標高の高い「${shelter.name}」（標高${shelterY.toFixed(1)}m）に到達しました。想定最高水位（${PEAK_WATER_LEVEL.toFixed(1)}m）を上回っており、浸水深0mで安全を完全に確保できました。`;
+    } else if (shelterY >= PEAK_WATER_LEVEL - 0.5) {
+      // わずかな浸水（足元〜床上浸水程度）
       status = 'survived';
       title = '避難完了 (軽微な浸水)';
       badgeElem.innerText = '[ 軽微な浸水 ]';
       badgeElem.className = 'inline-block px-3 py-1 rounded-full text-xs font-black uppercase tracking-wider mb-3 bg-yellow-950 border border-yellow-600 text-yellow-400';
-      desc = `【避難完了】「${shelter.name}」に避難しました。足元付近まで浸水しましたが、なんとか生存できました。より高い高台への避難も検討できました。`;
+      desc = `【避難完了】「${shelter.name}」（標高${shelterY.toFixed(1)}m）に避難しました。想定最高水位（${PEAK_WATER_LEVEL.toFixed(1)}m）により最大約${inundationDepth.toFixed(1)}mの浸水が想定されます。より高所・垂直避難も検討してください。`;
     } else {
+      // 低地避難所（標高が低く、後に水没する）
       status = 'drowned';
-      title = '避難失敗 (水没)';
+      title = '避難失敗 (避難所が水没)';
       badgeElem.innerText = '[ 避難失敗 ]';
       badgeElem.className = 'inline-block px-3 py-1 rounded-full text-xs font-black uppercase tracking-wider mb-3 bg-rose-950 border border-rose-600 text-rose-400';
-      desc = `【避難失敗】「${shelter.name}」に避難しましたが、この避難所は標高が低く、建物の高さ以上に浸水して水没してしまいました。ハザードマップで標高を事前に確認しておく必要がありました。`;
+      desc = `【避難失敗】「${shelter.name}」（標高${shelterY.toFixed(1)}m）に早期到達しましたが、この避難所は低地にあるため、その後の増水で想定最高水位（${PEAK_WATER_LEVEL.toFixed(1)}m）に達した際に約${inundationDepth.toFixed(1)}m水没してしまいます。ハザードマップで標高を確認し、高台や高層階へ避難する必要があります。`;
     }
   } else if (reason === 'drowned') {
     status = 'drowned';
     title = '避難失敗 (水没・溺死)';
     badgeElem.innerText = '[ 避難失敗 ]';
     badgeElem.className = 'inline-block px-3 py-1 rounded-full text-xs font-black uppercase tracking-wider mb-3 bg-rose-950 border border-rose-600 text-rose-400';
-    desc = '【避難失敗】水位の上昇に追いつかれ、水没してしまいました。水害が発生したら、より迅速に高台へ逃げる必要があります。';
+    desc = '【避難失敗】避難途中に水位の上昇に追いつかれ、水没してしまいました。水害が発生したら、より迅速に高台へ逃げる必要があります。';
   } else {
     status = 'timeout';
     title = 'タイムアップ (時間切れ)';
@@ -1834,7 +2286,12 @@ async function endSimulation(reason: 'evacuated' | 'drowned' | 'timeout', shelte
   document.getElementById('res-name')!.innerText = currentSession.name;
   document.getElementById('res-dest')!.innerText = currentSession.selected_destination || '未避難';
   document.getElementById('res-elev')!.innerText = `${finalElevation.toFixed(1)}m`;
-  document.getElementById('res-water')!.innerText = `${finalWater.toFixed(1)}m`;
+  document.getElementById('res-water')!.innerText = `${PEAK_WATER_LEVEL.toFixed(1)}m (現${waterLevel.toFixed(1)}m)`;
+  const inundationElem = document.getElementById('res-inundation');
+  if (inundationElem) {
+    inundationElem.innerText = `${inundationDepth.toFixed(1)}m`;
+    inundationElem.className = inundationDepth > 0.5 ? 'font-bold text-rose-400' : (inundationDepth > 0 ? 'font-bold text-yellow-400' : 'font-bold text-emerald-400');
+  }
   document.getElementById('res-time')!.innerText = `${Math.floor(gameTime / 60)}分 ${gameTime % 60}秒`;
   document.getElementById('res-status')!.innerText = status === 'survived' ? '生存' : '失敗';
 

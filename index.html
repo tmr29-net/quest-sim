@@ -18,7 +18,7 @@
           </div>
           <h1 class="text-2xl font-black text-cyan-400 tracking-tight">3D水害避難シミュレーター</h1>
         </div>
-        <p class="text-xs text-slate-400 text-center mb-6">探究活動・避難行動調査ツール (150m広域タウン)</p>
+        <p class="text-xs text-slate-400 text-center mb-6">探究活動・避難行動調査ツール (300m×300m / 600×600ブロック)</p>
         
         <form id="start-form" class="space-y-4">
           <div>
@@ -40,7 +40,7 @@
             <div>
               <label class="block text-xs font-bold mb-1.5 text-slate-300">使用マップ</label>
               <select id="select-map" class="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:ring-2 focus:ring-cyan-500">
-                <option value="default">標準マップ (広域タウン・150m)</option>
+                <option value="default">標準マップ (広島・深川 300m×300m)</option>
                 <option value="custom">自作カスタムマップ (クラウド/ローカル)</option>
               </select>
             </div>
@@ -127,7 +127,7 @@
         <div class="flex items-center space-x-2.5">
           <span class="px-2 py-0.5 bg-emerald-950 border border-emerald-700 text-emerald-300 font-bold rounded text-xs">エディタ</span>
           <div>
-            <h2 class="text-sm md:text-base font-black text-slate-100">3D建築・地形エディタ (150m×150m)</h2>
+            <h2 class="text-sm md:text-base font-black text-slate-100">3D建築・地形エディタ (300m×300m / 600×600ブロック)</h2>
             <div class="text-[10px] text-slate-400 hidden sm:block">画面クリックで視点開始 / <span class="text-cyan-400 font-bold">Eキー: インベントリメニュー</span> / 左クリック: 設置 / 右クリック: 破壊</div>
           </div>
         </div>
@@ -352,13 +352,17 @@
 
           <!-- 5. 建築スタンプ選択詳細 -->
           <div id="inv-stamp-settings" class="hidden bg-slate-950 p-3 rounded-xl border border-slate-800 space-y-2">
-            <div class="text-xs font-bold text-amber-400">配置スタンプ選択</div>
+            <div class="text-xs font-bold text-amber-400">配置スタンプ選択 (クリック一発配置)</div>
             <div class="grid grid-cols-2 sm:grid-cols-3 gap-2 text-xs">
-              <button data-stamp="house" class="inv-stamp-item bg-amber-800 text-white font-bold p-2 rounded border border-amber-600">住宅 (2階建)</button>
+              <button data-stamp="house" class="inv-stamp-item bg-amber-800 text-white font-bold p-2 rounded border border-amber-600">木造住宅 (2階)</button>
+              <button data-stamp="house_brick" class="inv-stamp-item bg-slate-800 text-slate-300 p-2 rounded border border-slate-700">洋風レンガ住宅</button>
+              <button data-stamp="house_modern" class="inv-stamp-item bg-slate-800 text-slate-300 p-2 rounded border border-slate-700">近代アパート (3階)</button>
               <button data-stamp="building_mid" class="inv-stamp-item bg-slate-800 text-slate-300 p-2 rounded border border-slate-700">中規模ビル (5階)</button>
               <button data-stamp="building_tall" class="inv-stamp-item bg-slate-800 text-slate-300 p-2 rounded border border-slate-700">高層ビル (12階)</button>
+              <button data-stamp="shelter_tower" class="inv-stamp-item bg-slate-800 text-slate-300 p-2 rounded border border-slate-700">津波避難タワー</button>
               <button data-stamp="bridge" class="inv-stamp-item bg-slate-800 text-slate-300 p-2 rounded border border-slate-700">木製の橋</button>
               <button data-stamp="stairs" class="inv-stamp-item bg-slate-800 text-slate-300 p-2 rounded border border-slate-700">階段スロープ</button>
+              <button data-stamp="park" class="inv-stamp-item bg-slate-800 text-slate-300 p-2 rounded border border-slate-700">街角の植樹・ベンチ</button>
             </div>
           </div>
 
@@ -421,8 +425,9 @@
           <div class="flex justify-between"><span class="text-slate-400">被験者ID:</span><span id="res-name" class="font-bold"></span></div>
           <div class="flex justify-between"><span class="text-slate-400">避難場所:</span><span id="res-dest" class="font-bold text-cyan-400"></span></div>
           <div class="flex justify-between"><span class="text-slate-400">避難所標高:</span><span id="res-elev" class="font-bold text-emerald-400"></span></div>
-          <div class="flex justify-between"><span class="text-slate-400">最終水位:</span><span id="res-water" class="font-bold text-blue-400"></span></div>
-          <div class="flex justify-between"><span class="text-slate-400">避難時間:</span><span id="res-time" class="font-bold"></span></div>
+          <div class="flex justify-between"><span class="text-slate-400">想定最高水位:</span><span id="res-water" class="font-bold text-blue-400"></span></div>
+          <div class="flex justify-between"><span class="text-slate-400">避難所浸水深:</span><span id="res-inundation" class="font-bold text-rose-400">0.0m</span></div>
+          <div class="flex justify-between"><span class="text-slate-400">避難所到達時間:</span><span id="res-time" class="font-bold"></span></div>
           <div class="flex justify-between"><span class="text-slate-400">最終判定:</span><span id="res-status" class="font-bold"></span></div>
         </div>
 
