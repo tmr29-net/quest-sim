@@ -534,10 +534,12 @@ function deserializeVoxelMap(dataStr: string) {
 async function saveMapData(showToast = false) {
   try {
     const serialized = serializeVoxelMap();
+    console.log(`[saveMapData] マップデータ圧縮サイズ: ${(serialized.length / 1024).toFixed(1)}KB, 避難所数: ${shelters.length}`);
 
     // 1. ローカル保存
     localStorage.setItem(CUSTOM_MAP_KEY, serialized);
     localStorage.setItem(SHELTER_LIST_KEY, JSON.stringify(shelters));
+    console.log('[saveMapData] ローカルストレージに保存完了');
 
     // 2. Supabase クラウド保存
     if (supabase) {
@@ -551,23 +553,26 @@ async function saveMapData(showToast = false) {
           updated_at: new Date().toISOString()
         });
         if (error) throw error;
+        console.log('[saveMapData] Supabaseクラウド保存成功');
         if (showToast) alert('マップデータをクラウド(Supabase)に保存しました！');
       } catch (e) {
-        console.warn('Supabase sync warning:', e);
+        console.warn('[saveMapData] Supabase保存失敗:', e);
         if (showToast) alert('ローカルストレージに保存しました (クラウド同期はオフライン)');
       }
-    } else if (showToast) {
-      alert('ローカルストレージに保存しました！');
+    } else {
+      console.log('[saveMapData] Supabase未設定 - ローカルのみ');
+      if (showToast) alert('ローカルストレージに保存しました！');
     }
     return true;
   } catch (err) {
-    console.error('Save error:', err);
+    console.error('[saveMapData] 保存エラー:', err);
     if (showToast) alert('保存中にエラーが発生しました');
     return false;
   }
 }
 
 async function loadMapData(useCustom: boolean) {
+  console.log(`[loadMapData] useCustom=${useCustom}`);
   if (useCustom) {
     if (supabase) {
       try {
@@ -576,10 +581,11 @@ async function loadMapData(useCustom: boolean) {
           deserializeVoxelMap(data.voxel_data);
           shelters = data.shelters || [];
           if (data.spawn_point?.gridX) spawnPoint = data.spawn_point;
+          console.log(`[loadMapData] Supabaseからカスタムマップロード成功 (避難所: ${shelters.length})`);
           return;
         }
       } catch (e) {
-        console.warn('Supabase fetch failed, fallback to local', e);
+        console.warn('[loadMapData] Supabaseからの取得失敗、ローカルにフォールバック', e);
       }
     }
 
@@ -589,13 +595,15 @@ async function loadMapData(useCustom: boolean) {
       try {
         deserializeVoxelMap(savedMap);
         shelters = savedShelters ? JSON.parse(savedShelters) : [];
+        console.log(`[loadMapData] ローカルストレージからカスタムマップロード成功 (避難所: ${shelters.length})`);
         return;
       } catch (e) {
-        console.error('Failed to parse local custom map', e);
+        console.error('[loadMapData] ローカルカスタムマップの解析失敗', e);
       }
     }
   }
 
+  console.log('[loadMapData] デフォルトマップを生成');
   buildDefaultMap();
 }
 
@@ -1710,6 +1718,17 @@ function setupEventListeners() {
     (document.getElementById('select-map') as HTMLSelectElement).value = 'custom';
   });
 
+  // 標準マップをエディターにロード
+  const btnLoadDefault = document.getElementById('btn-load-default')!;
+  btnLoadDefault.addEventListener('click', async () => {
+    if (!confirm('現在のマップを破棄して標準マップ（広島・深川）をロードしますか？\n※ 現在のマップは保存されていなければ失われます。')) return;
+    if (document.exitPointerLock) document.exitPointerLock();
+    toggleInventory(false);
+    await loadMapData(false); // false = 標準マップ (buildDefaultMap)
+    refreshEditorVoxelScene();
+    alert('標準マップをロードしました。編集して保存してください。');
+  });
+
   btnGotoAdmin.addEventListener('click', () => {
     screenStart.classList.add('hidden');
     screenAdmin.classList.remove('hidden');
@@ -1834,7 +1853,7 @@ function setupEventListeners() {
     isGameDragging = false;
   });
 
-  // タッチスワイプによる視点回転
+  // タッチスワイプによる視点回転（ジョイスティック領域を除外）
   let gameTouchCamId: number | null = null;
   let gameTouchStartX = 0;
   let gameTouchStartY = 0;
@@ -1842,6 +1861,24 @@ function setupEventListeners() {
   gameContainer.addEventListener('touchstart', (e: TouchEvent) => {
     if (!isPlaying) return;
     const touch = e.changedTouches[0];
+    // ジョイスティック領域で始まったタッチは視点操作にしない
+    const joystickZone = document.getElementById('game-joystick-zone');
+    if (joystickZone) {
+      const rect = joystickZone.getBoundingClientRect();
+      if (touch.clientX >= rect.left && touch.clientX <= rect.right &&
+          touch.clientY >= rect.top && touch.clientY <= rect.bottom) {
+        return; // ジョイスティック領域なのでスキップ
+      }
+    }
+    // 避難ボタン領域も除外
+    const btnEvac = document.getElementById('btn-evacuate');
+    if (btnEvac) {
+      const rect = btnEvac.getBoundingClientRect();
+      if (touch.clientX >= rect.left && touch.clientX <= rect.right &&
+          touch.clientY >= rect.top && touch.clientY <= rect.bottom) {
+        return;
+      }
+    }
     gameTouchCamId = touch.identifier;
     gameTouchStartX = touch.clientX;
     gameTouchStartY = touch.clientY;
@@ -2299,6 +2336,8 @@ async function endSimulation(reason: 'evacuated' | 'drowned' | 'timeout', shelte
 }
 
 async function saveSessionData(session: any, trajectories: any[]) {
+  console.log(`[saveSessionData] セッション: ${session.id}, 名前: ${session.name}, 状態: ${session.status}, 軌跡数: ${trajectories.length}`);
+
   const sessions = JSON.parse(localStorage.getItem(LOCAL_STORAGE_KEY) || '[]');
   sessions.push(session);
   localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(sessions));
@@ -2306,10 +2345,11 @@ async function saveSessionData(session: any, trajectories: any[]) {
   const allTraj = JSON.parse(localStorage.getItem(LOCAL_TRAJECTORY_KEY) || '{}');
   allTraj[session.id] = trajectories;
   localStorage.setItem(LOCAL_TRAJECTORY_KEY, JSON.stringify(allTraj));
+  console.log('[saveSessionData] ローカルストレージに保存完了');
 
   if (supabase) {
     try {
-      await supabase.from('sessions').insert({
+      const { error: sessionError } = await supabase.from('sessions').insert({
         id: session.id,
         created_at: session.created_at,
         name: session.name,
@@ -2319,6 +2359,7 @@ async function saveSessionData(session: any, trajectories: any[]) {
         status: session.status,
         duration: session.duration
       });
+      if (sessionError) console.warn('[saveSessionData] Supabaseセッション保存エラー:', sessionError);
 
       const formatted = trajectories.map(t => ({
         session_id: session.id,
@@ -2330,12 +2371,15 @@ async function saveSessionData(session: any, trajectories: any[]) {
       }));
 
       for (let i = 0; i < formatted.length; i += 100) {
-        await supabase.from('trajectories').insert(formatted.slice(i, i + 100));
+        const { error: trajError } = await supabase.from('trajectories').insert(formatted.slice(i, i + 100));
+        if (trajError) console.warn('[saveSessionData] Supabase軌跡保存エラー:', trajError);
       }
-      console.log('Saved to Supabase successfully');
+      console.log('[saveSessionData] Supabaseにセッション+軌跡保存成功');
     } catch (e) {
-      console.error('Supabase error', e);
+      console.error('[saveSessionData] Supabase保存失敗:', e);
     }
+  } else {
+    console.log('[saveSessionData] Supabase未設定 - ローカルのみ');
   }
 }
 
