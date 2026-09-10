@@ -51,9 +51,6 @@
             <p class="text-[11px] text-slate-300 leading-relaxed mb-2.5">
               豪雨により水害が発生します。開始30秒後から低標高地域より浸水が拡大します。制限時間内に安全な高所避難場所を目指してください。
             </p>
-            <label class="block text-xs font-bold text-slate-300 mb-1.5" for="input-max-water-depth">最大水深 (m)</label>
-            <input type="number" id="input-max-water-depth" min="0.5" max="25" step="0.1" value="10.5" required
-              class="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-cyan-500 mb-3" />
             <label class="flex items-center space-x-2.5 cursor-pointer">
               <input type="checkbox" id="input-hazard" class="h-4 w-4 rounded border-slate-700 bg-slate-800 text-cyan-600 focus:ring-cyan-500" />
               <span class="text-xs text-slate-200 font-semibold select-none">事前にハザードマップを確認した</span>
@@ -151,6 +148,13 @@
           <button id="btn-load-default" class="bg-amber-700 hover:bg-amber-600 text-white font-bold px-3 py-1 rounded-lg border border-amber-500 text-xs shadow transition">
             標準マップ読込
           </button>
+
+          <label class="flex items-center gap-1.5 bg-slate-800 border border-slate-700 rounded-lg px-2 py-1 text-[10px] text-slate-300 font-bold whitespace-nowrap">
+            最大水深
+            <input type="number" id="input-editor-max-water-depth" min="0.5" max="25" step="0.1" value="10.5" required
+              class="w-16 bg-slate-950 border border-slate-600 rounded px-1.5 py-0.5 text-xs text-white font-normal focus:outline-none focus:ring-1 focus:ring-cyan-500" />
+            m
+          </label>
 
           <!-- 保存 & 終了 -->
           <button id="btn-editor-save" class="bg-emerald-600 hover:bg-emerald-500 text-white font-black px-3.5 py-1 rounded-lg shadow transition">

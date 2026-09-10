@@ -20,6 +20,7 @@ const LOCAL_STORAGE_KEY = 'flood_sim_sessions_v8';
 const LOCAL_TRAJECTORY_KEY = 'flood_sim_trajectories_v8';
 const CUSTOM_MAP_KEY = 'flood_sim_voxel_map_v8';
 const SHELTER_LIST_KEY = 'flood_sim_shelters_v8';
+const WATER_LEVEL_KEY = 'flood_sim_max_water_level_v1';
 
 // ==========================================
 //           ボクセル定数 & 定義
@@ -534,11 +535,18 @@ function deserializeVoxelMap(dataStr: string) {
 async function saveMapData(showToast = false) {
   try {
     const serialized = serializeVoxelMap();
+    const maxWaterDepthInput = document.getElementById('input-editor-max-water-depth') as HTMLInputElement | null;
+    if (maxWaterDepthInput) {
+      const requestedMaxWaterDepth = Number(maxWaterDepthInput.value);
+      maxWaterLevel = Math.max(INITIAL_WATER_LEVEL, Math.min(25, Number.isFinite(requestedMaxWaterDepth) ? requestedMaxWaterDepth : DEFAULT_MAX_WATER_LEVEL));
+      maxWaterDepthInput.value = maxWaterLevel.toFixed(1);
+    }
     console.log(`[saveMapData] マップデータ圧縮サイズ: ${(serialized.length / 1024).toFixed(1)}KB, 避難所数: ${shelters.length}`);
 
     // 1. ローカル保存
     localStorage.setItem(CUSTOM_MAP_KEY, serialized);
     localStorage.setItem(SHELTER_LIST_KEY, JSON.stringify(shelters));
+    localStorage.setItem(WATER_LEVEL_KEY, maxWaterLevel.toString());
     console.log('[saveMapData] ローカルストレージに保存完了');
 
     // 2. Supabase クラウド保存
@@ -1217,6 +1225,12 @@ function refreshEditorVoxelScene() {
 
 async function openEditor() {
   await loadMapData(true);
+  const savedMaxWaterLevel = Number(localStorage.getItem(WATER_LEVEL_KEY));
+  if (Number.isFinite(savedMaxWaterLevel)) {
+    maxWaterLevel = Math.max(INITIAL_WATER_LEVEL, Math.min(25, savedMaxWaterLevel));
+  }
+  const maxWaterDepthInput = document.getElementById('input-editor-max-water-depth') as HTMLInputElement | null;
+  if (maxWaterDepthInput) maxWaterDepthInput.value = maxWaterLevel.toFixed(1);
   isEditorActive = true;
   refreshEditorVoxelScene();
   editorClock.getDelta();
@@ -1685,9 +1699,6 @@ function setupEventListeners() {
     const name = (document.getElementById('input-name') as HTMLInputElement).value;
     const age = (document.getElementById('input-age') as HTMLSelectElement).value;
     const mapType = (document.getElementById('select-map') as HTMLSelectElement).value;
-    const maxWaterDepthInput = document.getElementById('input-max-water-depth') as HTMLInputElement;
-    const requestedMaxWaterDepth = Number(maxWaterDepthInput.value);
-    maxWaterLevel = Math.max(INITIAL_WATER_LEVEL, Math.min(25, Number.isFinite(requestedMaxWaterDepth) ? requestedMaxWaterDepth : DEFAULT_MAX_WATER_LEVEL));
     const hasHazard = (document.getElementById('input-hazard') as HTMLInputElement).checked;
 
     currentSession = {
