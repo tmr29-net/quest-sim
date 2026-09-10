@@ -1097,6 +1097,9 @@ let currentBrushBlock: BlockType = BLOCK.GRASS;
 let editorMode: 'place' | 'break' = 'place';
 let editorTool: 'single' | 'hill' | 'box' | 'stamp' = 'single';
 let currentStampType = 'house';
+let editorHeldButton: 0 | 2 | null = null;
+let editorRepeatTimer: ReturnType<typeof setInterval> | null = null;
+let editorRefreshQueued = false;
 
 let hillBrushRadius = 12;
 let hillBrushHeight = 8;
@@ -1119,9 +1122,9 @@ function initEditorThree() {
   const h = container.clientHeight || window.innerHeight;
   editorCamera = new THREE.PerspectiveCamera(60, w / h, 0.1, 1000);
 
-  editorRenderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
+  editorRenderer = new THREE.WebGLRenderer({ antialias: false, powerPreference: 'high-performance' });
   editorRenderer.setSize(w, h);
-  editorRenderer.shadowMap.enabled = true;
+  editorRenderer.shadowMap.enabled = false;
   container.appendChild(editorRenderer.domElement);
 
   const hemi = new THREE.HemisphereLight(0xffffff, 0x1e293b, 0.7);
@@ -1129,7 +1132,7 @@ function initEditorThree() {
 
   const dir = new THREE.DirectionalLight(0xffffff, 0.9);
   dir.position.set(100, 200, 100);
-  dir.castShadow = true;
+  dir.castShadow = false;
   editorScene.add(dir);
 
   const gridHelper = new THREE.GridHelper(MAP_GRID_X * VOXEL_SIZE, MAP_GRID_X / 4, 0x06b6d4, 0x1e293b);
@@ -1176,6 +1179,7 @@ function initEditorThree() {
 
   container.addEventListener('mousedown', (e) => {
     if (!isEditorActive || !isPointerLocked || isInventoryOpen) return;
+    e.preventDefault();
 
     if (weSelectingPos === 1 && targetVoxelPos && targetVoxelPos.inReach) {
       wePos1 = { x: targetVoxelPos.x, y: targetVoxelPos.y, z: targetVoxelPos.z };
@@ -1194,8 +1198,27 @@ function initEditorThree() {
         applyStampAtTarget(currentStampType);
       }
     } else {
-      if (e.button === 0) executeEditorAction(editorMode);
-      else if (e.button === 2) executeEditorAction('break');
+      if (e.button === 0 || e.button === 2) {
+        // Minecraft風: 左クリックで破壊、右クリックで設置。
+        editorHeldButton = e.button;
+        executeEditorAction(e.button === 0 ? 'break' : 'place');
+        if (!editorRepeatTimer) {
+          editorRepeatTimer = setInterval(() => {
+            if (editorHeldButton !== null) {
+              executeEditorAction(editorHeldButton === 0 ? 'break' : 'place');
+            }
+          }, 100);
+        }
+      }
+    }
+  });
+
+  window.addEventListener('mouseup', (e) => {
+    if (e.button !== editorHeldButton) return;
+    editorHeldButton = null;
+    if (editorRepeatTimer) {
+      clearInterval(editorRepeatTimer);
+      editorRepeatTimer = null;
     }
   });
 
@@ -1221,6 +1244,15 @@ function refreshEditorVoxelScene() {
 
   const badge = document.getElementById('badge-shelter-count');
   if (badge) badge.innerText = shelters.length.toString();
+}
+
+function queueEditorVoxelRefresh() {
+  if (editorRefreshQueued) return;
+  editorRefreshQueued = true;
+  requestAnimationFrame(() => {
+    editorRefreshQueued = false;
+    refreshEditorVoxelScene();
+  });
 }
 
 async function openEditor() {
@@ -1275,7 +1307,7 @@ function updateEditorRaycast() {
 
     targetVoxelPos = { x: gx, y: gy, z: gz, normal, distance, inReach };
 
-    const highlightTarget = (editorMode === 'place' && editorTool === 'single')
+    const highlightTarget = (editorHeldButton !== 0 && editorTool === 'single')
       ? { x: gx + normal.x, y: gy + normal.y, z: gz + normal.z }
       : { x: gx, y: gy, z: gz };
 
@@ -1364,7 +1396,7 @@ function executeEditorAction(mode: 'place' | 'break') {
         setVoxel(tx, ty, tz, BLOCK.SPAWN);
       }
 
-      refreshEditorVoxelScene();
+      queueEditorVoxelRefresh();
     }
   } else if (mode === 'break') {
     const tx = targetVoxelPos.x;
@@ -1377,7 +1409,7 @@ function executeEditorAction(mode: 'place' | 'break') {
       if (oldBlock === BLOCK.SHELTER) {
         shelters = shelters.filter(s => !(s.gridX === tx && s.gridY === ty && s.gridZ === tz));
       }
-      refreshEditorVoxelScene();
+      queueEditorVoxelRefresh();
     }
   }
 }
@@ -1773,30 +1805,10 @@ function setupEventListeners() {
 
   setupInventoryModal();
 
-  const btnModePlace = document.getElementById('btn-mode-place')!;
-  const btnModeBreak = document.getElementById('btn-mode-break')!;
-  btnModePlace.addEventListener('click', () => {
-    editorMode = 'place';
-    btnModePlace.className = 'px-2.5 py-1 rounded bg-cyan-600 text-white font-bold text-xs';
-    btnModeBreak.className = 'px-2.5 py-1 rounded text-slate-400 font-bold text-xs hover:text-white';
-  });
-  btnModeBreak.addEventListener('click', () => {
-    editorMode = 'break';
-    btnModeBreak.className = 'px-2.5 py-1 rounded bg-red-600 text-white font-bold text-xs';
-    btnModePlace.className = 'px-2.5 py-1 rounded text-slate-400 font-bold text-xs hover:text-white';
-  });
-
   const paletteButtons = document.querySelectorAll('.palette-block');
   paletteButtons.forEach(btn => {
     btn.addEventListener('click', () => {
-      paletteButtons.forEach(b => b.classList.remove('active', 'border-cyan-400', 'border-2'));
-      btn.classList.add('active', 'border-cyan-400', 'border-2');
-      currentBrushBlock = Number(btn.getAttribute('data-block')) as BlockType;
-
-      const label = document.getElementById('editor-current-block-label');
-      if (label && BLOCK_CONFIGS[currentBrushBlock]) {
-        label.innerText = BLOCK_CONFIGS[currentBrushBlock].name;
-      }
+      selectEditorBlock(Number(btn.getAttribute('data-block')) as BlockType);
     });
   });
 
@@ -1804,6 +1816,16 @@ function setupEventListeners() {
 
   window.addEventListener('keydown', (e) => {
     const k = e.key.toLowerCase();
+
+    if (isEditorActive && !isInventoryOpen && /^[1-9]$/.test(e.key)) {
+      const hotbarButton = document.querySelectorAll('.palette-block')[Number(e.key) - 1] as HTMLElement | undefined;
+      const block = hotbarButton?.getAttribute('data-block');
+      if (block) {
+        e.preventDefault();
+        selectEditorBlock(Number(block) as BlockType);
+        return;
+      }
+    }
     
     if (isEditorActive && (k === 'e' || e.code === 'KeyE')) {
       if (e.target instanceof HTMLInputElement || e.target instanceof HTMLSelectElement) return;
@@ -1956,6 +1978,26 @@ function setupEventListeners() {
   });
 }
 
+function selectEditorBlock(block: BlockType) {
+  currentBrushBlock = block;
+
+  document.querySelectorAll('.palette-block').forEach(button => {
+    const isSelected = Number(button.getAttribute('data-block')) === block;
+    button.classList.toggle('active', isSelected);
+    button.classList.toggle('border-cyan-400', isSelected);
+    button.classList.toggle('border-2', isSelected);
+  });
+
+  document.querySelectorAll('.inv-block-btn').forEach(button => {
+    const isSelected = Number(button.getAttribute('data-block')) === block;
+    button.classList.toggle('border-cyan-400', isSelected);
+    button.classList.toggle('bg-slate-700', isSelected);
+  });
+
+  const label = document.getElementById('editor-current-block-label');
+  if (label && BLOCK_CONFIGS[block]) label.innerText = BLOCK_CONFIGS[block].name;
+}
+
 function setupInventoryModal() {
   const btnOpen = document.getElementById('btn-open-inventory')!;
   const btnClose = document.getElementById('btn-close-inventory')!;
@@ -1968,14 +2010,7 @@ function setupInventoryModal() {
   const invBlockBtns = document.querySelectorAll('.inv-block-btn');
   invBlockBtns.forEach(btn => {
     btn.addEventListener('click', () => {
-      invBlockBtns.forEach(b => b.classList.remove('border-cyan-400', 'bg-slate-700'));
-      btn.classList.add('border-cyan-400', 'bg-slate-700');
-      currentBrushBlock = Number(btn.getAttribute('data-block')) as BlockType;
-
-      const label = document.getElementById('editor-current-block-label');
-      if (label && BLOCK_CONFIGS[currentBrushBlock]) {
-        label.innerText = BLOCK_CONFIGS[currentBrushBlock].name;
-      }
+      selectEditorBlock(Number(btn.getAttribute('data-block')) as BlockType);
     });
   });
 
@@ -2001,7 +2036,7 @@ function setupInventoryModal() {
     resetInvTools();
     editorTool = 'single';
     toolSingle.className = 'p-2.5 rounded-xl border bg-emerald-700 border-emerald-500 text-white font-bold text-xs flex flex-col items-center justify-center';
-    modeLabel.innerText = 'モード: 単体設置/破壊';
+    modeLabel.innerText = 'モード: 左クリック破壊 / 右クリック設置';
   });
 
   toolHill.addEventListener('click', () => {
