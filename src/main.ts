@@ -737,7 +737,12 @@ let gameClock: THREE.Clock;
 let isPlaying = false;
 let gameTime = 0;
 const MAX_GAME_TIME = 300;
-let waterLevel = 0.0;
+const INITIAL_WATER_LEVEL = 0.2;
+const DEFAULT_MAX_WATER_LEVEL = 10.5;
+const DROWNING_DEPTH = 0.5;
+let maxWaterLevel = DEFAULT_MAX_WATER_LEVEL;
+let waterRiseRate = 0.0;
+let waterLevel = INITIAL_WATER_LEVEL;
 const WATER_START_SEC = 30;
 let trajectoryData: any[] = [];
 let currentSession: any = null;
@@ -853,7 +858,8 @@ async function startSimulationMode(mapType: string) {
   gameCamPitch = 0.35;
   gameCamDist = 6.0;
 
-  waterLevel = 0.2;
+  waterLevel = INITIAL_WATER_LEVEL;
+  waterRiseRate = (maxWaterLevel - INITIAL_WATER_LEVEL) / (MAX_GAME_TIME - WATER_START_SEC);
   gameTime = 0;
   isPlaying = true;
   trajectoryData = [];
@@ -964,11 +970,11 @@ function updateGamePhysics(dt: number) {
   playerMesh.rotation.y = player.facingAngle;
 
   if (gameTime >= WATER_START_SEC) {
-    waterLevel += 0.038 * dt;
+    waterLevel = Math.min(maxWaterLevel, waterLevel + waterRiseRate * dt);
   }
   gameWaterMesh.position.y = waterLevel;
 
-  if (waterLevel > player.pos.y + player.height) {
+  if (waterLevel - player.pos.y >= DROWNING_DEPTH) {
     endSimulation('drowned');
   }
 
@@ -1679,6 +1685,9 @@ function setupEventListeners() {
     const name = (document.getElementById('input-name') as HTMLInputElement).value;
     const age = (document.getElementById('input-age') as HTMLSelectElement).value;
     const mapType = (document.getElementById('select-map') as HTMLSelectElement).value;
+    const maxWaterDepthInput = document.getElementById('input-max-water-depth') as HTMLInputElement;
+    const requestedMaxWaterDepth = Number(maxWaterDepthInput.value);
+    maxWaterLevel = Math.max(INITIAL_WATER_LEVEL, Math.min(25, Number.isFinite(requestedMaxWaterDepth) ? requestedMaxWaterDepth : DEFAULT_MAX_WATER_LEVEL));
     const hasHazard = (document.getElementById('input-hazard') as HTMLInputElement).checked;
 
     currentSession = {
@@ -1687,6 +1696,7 @@ function setupEventListeners() {
       name,
       age_group: age,
       has_hazard_map: hasHazard,
+      max_water_depth: maxWaterLevel,
       selected_destination: '',
       status: 'playing',
       duration: 0
@@ -2261,8 +2271,7 @@ async function endSimulation(reason: 'evacuated' | 'drowned' | 'timeout', shelte
   let title = '避難完了 (安全)';
   let desc = '';
   const finalElevation = player.pos.y;
-  // 本水害シナリオの想定最高水位 (300秒時点の最高到達水位: 約10.5m)
-  const PEAK_WATER_LEVEL = 0.2 + 0.038 * (MAX_GAME_TIME - WATER_START_SEC); // 約10.46m
+  const PEAK_WATER_LEVEL = maxWaterLevel;
   let inundationDepth = 0;
 
   const badgeElem = document.getElementById('result-badge')!;
