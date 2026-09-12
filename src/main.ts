@@ -1,6 +1,7 @@
 import './style.css';
 import * as THREE from 'three';
 import { createClient } from '@supabase/supabase-js';
+import { DEFAULT_MAP_DATA, type MapPoint } from './defaultMapData';
 
 // --- Supabase クライアント設定 ---
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL || '';
@@ -54,12 +55,12 @@ const BLOCK_CONFIGS: Record<number, { name: string; color: number; transparent?:
   [BLOCK.GRASS]: { name: '草地 (Grass)', color: 0x4d8a39, roughness: 0.9 },
   [BLOCK.DIRT]: { name: '土 (Dirt)', color: 0x865935, roughness: 0.95 },
   [BLOCK.STONE]: { name: '石 (Stone)', color: 0x7b8288, roughness: 0.8 },
-  [BLOCK.ASPHALT]: { name: '道路 (Asphalt)', color: 0x2d3748, roughness: 0.9 },
+  [BLOCK.ASPHALT]: { name: '道路 (Asphalt)', color: 0x30343b, roughness: 0.9 },
   [BLOCK.WOOD]: { name: '木材 (Wood)', color: 0x9c6b3e, roughness: 0.8 },
   [BLOCK.CONCRETE]: { name: 'ビル壁 (Concrete)', color: 0xe2e8f0, roughness: 0.6 },
   [BLOCK.BRICK]: { name: 'レンガ (Brick)', color: 0xa84232, roughness: 0.85 },
   [BLOCK.GLASS]: { name: 'ガラス (Glass)', color: 0xbae6fd, transparent: true, opacity: 0.45, roughness: 0.2 },
-  [BLOCK.WATER]: { name: '水路 (Water)', color: 0x2563eb, transparent: true, opacity: 0.65, roughness: 0.1 },
+  [BLOCK.WATER]: { name: '水路 (Water)', color: 0x38bdf8, transparent: true, opacity: 0.65, roughness: 0.1 },
   [BLOCK.SHELTER]: { name: '避難所 (Shelter)', color: 0xf43f5e, roughness: 0.4 },
   [BLOCK.SPAWN]: { name: '開始地点 (Spawn)', color: 0x06b6d4, roughness: 0.4 },
   [BLOCK.BARRIER]: { name: 'バリア (見えない壁)', color: 0xf43f5e, transparent: true, opacity: 0.35, roughness: 0.1, invisibleInGame: true }
@@ -99,7 +100,124 @@ export function setVoxel(x: number, y: number, z: number, type: BlockType): void
 // ==========================================
 //  広島・深川エリア (300m×300m) 精密モデル生成
 // ==========================================
+function pointInPolygon(x: number, z: number, polygon: MapPoint[]): boolean {
+  let inside = false;
+  for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i++) {
+    const [xi, zi] = polygon[i];
+    const [xj, zj] = polygon[j];
+    const crosses = (zi > z) !== (zj > z) && x < ((xj - xi) * (z - zi)) / (zj - zi) + xi;
+    if (crosses) inside = !inside;
+  }
+  return inside;
+}
+
+function rasterizeMapLine(points: MapPoint[], width: number, draw: (x: number, z: number) => void) {
+  for (let i = 0; i < points.length - 1; i++) {
+    const [x1, z1] = points[i];
+    const [x2, z2] = points[i + 1];
+    const steps = Math.max(Math.abs(x2 - x1), Math.abs(z2 - z1)) * 2;
+    for (let step = 0; step <= steps; step++) {
+      const t = steps === 0 ? 0 : step / steps;
+      const centerX = Math.round(x1 + (x2 - x1) * t);
+      const centerZ = Math.round(z1 + (z2 - z1) * t);
+      for (let dx = -width; dx <= width; dx++) {
+        for (let dz = -width; dz <= width; dz++) {
+          if (dx * dx + dz * dz <= width * width) draw(centerX + dx, centerZ + dz);
+        }
+      }
+    }
+  }
+}
+
+function buildImageBasedDefaultMap() {
+  voxelMap.fill(BLOCK.AIR);
+  shelters = [];
+
+  const { elevationSamples, river, roads, railway, bridges, mountainHatches, spawn } = DEFAULT_MAP_DATA;
+  const sampleSpacing = MAP_GRID_X / (elevationSamples.length - 1);
+
+  const sampleTerrainHeight = (x: number, z: number) => {
+    const sampleX = Math.max(0, Math.min(elevationSamples.length - 1.001, x / sampleSpacing));
+    const sampleZ = Math.max(0, Math.min(elevationSamples.length - 1.001, z / sampleSpacing));
+    const x0 = Math.floor(sampleX);
+    const z0 = Math.floor(sampleZ);
+    const tx = sampleX - x0;
+    const tz = sampleZ - z0;
+    const topRow = elevationSamples[z0];
+    const bottomRow = elevationSamples[Math.min(z0 + 1, elevationSamples.length - 1)];
+    const top = topRow[x0] + (topRow[Math.min(x0 + 1, topRow.length - 1)] - topRow[x0]) * tx;
+    const bottom = bottomRow[x0] + (bottomRow[Math.min(x0 + 1, bottomRow.length - 1)] - bottomRow[x0]) * tx;
+    return Math.round(top + (bottom - top) * tz);
+  };
+
+  for (let x = 0; x < MAP_GRID_X; x++) {
+    for (let z = 0; z < MAP_GRID_Z; z++) {
+      const onRiver = pointInPolygon(x, z, river);
+      const height = onRiver ? 1 : sampleTerrainHeight(x, z);
+      for (let y = 0; y <= height; y++) {
+        if (onRiver && y >= 1) setVoxel(x, y, z, BLOCK.WATER);
+        else if (y === height) setVoxel(x, y, z, BLOCK.GRASS);
+        else if (y >= height - 2) setVoxel(x, y, z, BLOCK.DIRT);
+        else setVoxel(x, y, z, BLOCK.STONE);
+      }
+    }
+  }
+
+  const paintSurface = (x: number, z: number, type: BlockType) => {
+    if (x < 0 || x >= MAP_GRID_X || z < 0 || z >= MAP_GRID_Z) return;
+    // A road or rail must never be painted below an existing river surface.
+    if (getVoxel(x, 1, z) === BLOCK.WATER || getVoxel(x, 2, z) === BLOCK.WATER) return;
+    for (let y = MAP_GRID_Y - 1; y >= 0; y--) {
+      const current = getVoxel(x, y, z);
+      if (current !== BLOCK.AIR && current !== BLOCK.WATER) {
+        setVoxel(x, y, z, type);
+        return;
+      }
+    }
+  };
+
+  const surfaceYAt = (x: number, z: number) => {
+    for (let y = MAP_GRID_Y - 1; y >= 0; y--) {
+      const type = getVoxel(x, y, z);
+      if (type !== BLOCK.AIR && type !== BLOCK.WATER) return y;
+    }
+    return 0;
+  };
+
+  for (const road of roads) rasterizeMapLine(road.points, road.width, (x, z) => paintSurface(x, z, BLOCK.ASPHALT));
+  rasterizeMapLine(railway, 2, (x, z) => paintSurface(x, z, BLOCK.WOOD));
+  const paintBridge = (x: number, z: number) => {
+    if (x < 0 || x >= MAP_GRID_X || z < 0 || z >= MAP_GRID_Z) return;
+    const isWaterCell = getVoxel(x, 1, z) === BLOCK.WATER || getVoxel(x, 2, z) === BLOCK.WATER;
+    const isBridgeApproach = isWaterCell || getVoxel(x, 1, z + 6) === BLOCK.WATER || getVoxel(x, 1, z - 6) === BLOCK.WATER;
+    if (!isBridgeApproach) return;
+    let bankY = 0;
+    for (let distance = 1; distance <= 40; distance++) {
+      const beforeZ = z - distance;
+      const afterZ = z + distance;
+      if (beforeZ >= 0 && getVoxel(x, 1, beforeZ) !== BLOCK.WATER) bankY = Math.max(bankY, surfaceYAt(x, beforeZ));
+      if (afterZ < MAP_GRID_Z && getVoxel(x, 1, afterZ) !== BLOCK.WATER) bankY = Math.max(bankY, surfaceYAt(x, afterZ));
+      if (bankY > 0) break;
+    }
+    const deckY = Math.max(2, bankY + 1);
+    for (let y = 0; y < deckY; y++) {
+      if (getVoxel(x, y, z) === BLOCK.AIR || getVoxel(x, y, z) === BLOCK.WATER) setVoxel(x, y, z, BLOCK.CONCRETE);
+    }
+    setVoxel(x, deckY, z, BLOCK.ASPHALT);
+    if (x === 317 || x === 327) setVoxel(x, deckY + 1, z, BLOCK.WOOD);
+  };
+  for (const bridge of bridges) rasterizeMapLine(bridge, 5, paintBridge);
+
+  for (const hatch of mountainHatches) rasterizeMapLine(hatch, 1, (x, z) => paintSurface(x, z, BLOCK.GRASS));
+
+  spawnPoint = { gridX: spawn[0], gridY: sampleTerrainHeight(spawn[0], spawn[1]) + 1, gridZ: spawn[1] };
+  setVoxel(spawnPoint.gridX, spawnPoint.gridY, spawnPoint.gridZ, BLOCK.SPAWN);
+}
+
 function buildDefaultMap() {
+  buildImageBasedDefaultMap();
+  return;
+
   voxelMap.fill(BLOCK.AIR);
   shelters = [];
 
@@ -2533,15 +2651,19 @@ async function drawTrajectories() {
       }
 
       if (topType === BLOCK.WATER) {
-        ctx.fillStyle = '#1d4ed8';
+        ctx.fillStyle = '#38bdf8';
       } else if (topType === BLOCK.ASPHALT) {
-        ctx.fillStyle = '#334155';
+        ctx.fillStyle = '#30343b';
+      } else if (topType === BLOCK.WOOD) {
+        ctx.fillStyle = '#9c6b3e';
       } else if (topType === BLOCK.CONCRETE || topType === BLOCK.BRICK) {
         ctx.fillStyle = '#cbd5e1';
       } else {
-        if (topY < 5) ctx.fillStyle = 'rgba(239, 68, 68, 0.25)';
-        else if (topY < 14) ctx.fillStyle = 'rgba(234, 179, 8, 0.2)';
-        else ctx.fillStyle = 'rgba(16, 185, 129, 0.25)';
+        if (topY <= 4) ctx.fillStyle = '#fb8b91';
+        else if (topY <= 8) ctx.fillStyle = '#f5b4ec';
+        else if (topY <= 13) ctx.fillStyle = '#fed7aa';
+        else if (topY <= 20) ctx.fillStyle = '#fff59e';
+        else ctx.fillStyle = '#f8fafc';
       }
       ctx.fillRect(x * cellW, z * cellH, cellW, cellH);
     }
